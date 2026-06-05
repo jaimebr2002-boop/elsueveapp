@@ -4,24 +4,20 @@ import { createServiceClient } from "@/lib/supabase";
 // GHL envía distintos payloads según el evento.
 // Mapeamos los campos más comunes del appointment webhook.
 function parseGhlPayload(body: Record<string, unknown>) {
-  // Campos del appointment booking de GHL
+  // Estructura esperada del body RAW configurado en GHL:
+  // { contact: { id, name, email, phone }, appointment: { id, startTime, endTime, status, notes }, type }
   const contact = (body.contact as Record<string, unknown>) ?? {};
-  const appointment = (body.appointment as Record<string, unknown>) ?? body;
+  const appointment = (body.appointment as Record<string, unknown>) ?? {};
 
   const nombre =
-    (contact.full_name as string) ??
     (contact.name as string) ??
-    ((contact.first_name ?? "") + " " + (contact.last_name ?? "")).trim() ??
-    "Sin nombre";
+    (contact.full_name as string) ??
+    ((String(contact.first_name ?? "") + " " + String(contact.last_name ?? "")).trim() || "Sin nombre");
 
-  const tel =
-    (contact.phone as string) ??
-    (contact.phoneRaw as string) ??
-    null;
-
+  const tel = (contact.phone as string) ?? null;
   const email = (contact.email as string) ?? null;
 
-  // Fecha y hora del appointment
+  // startTime viene como string ISO desde GHL: "2026-06-10T13:00:00+02:00"
   const startTime =
     (appointment.startTime as string) ??
     (appointment.start_time as string) ??
@@ -32,19 +28,16 @@ function parseGhlPayload(body: Record<string, unknown>) {
 
   if (startTime) {
     const d = new Date(startTime);
-    fecha = d.toISOString().split("T")[0]; // YYYY-MM-DD
-    hora = d.toTimeString().slice(0, 5);   // HH:MM
+    if (!isNaN(d.getTime())) {
+      fecha = d.toISOString().split("T")[0]; // YYYY-MM-DD
+      hora = d.toTimeString().slice(0, 5);   // HH:MM
+    }
   }
 
-  const pax = (body.guests as number) ?? (body.pax as number) ?? null;
-  const obs = (appointment.notes as string) ?? (body.notes as string) ?? null;
-  const ghl_id =
-    (appointment.id as string) ??
-    (body.id as string) ??
-    (body.appointmentId as string) ??
-    null;
+  const obs = (appointment.notes as string) ?? null;
+  const ghl_id = (appointment.id as string) ?? (contact.id as string) ?? null;
 
-  return { nombre, tel, email, fecha, hora, pax, obs, ghl_id };
+  return { nombre, tel, email, fecha, hora, obs, ghl_id };
 }
 
 export async function POST(req: NextRequest) {
