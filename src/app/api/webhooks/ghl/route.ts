@@ -62,8 +62,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    // Log completo del payload para depuración
-    console.log("[GHL payload]", JSON.stringify(body));
+    // Log de campos clave para diagnóstico
+    const contact = (body.contact as Record<string, unknown>) ?? {};
+    console.log("[GHL contact keys]", Object.keys(contact).join(", "));
+    console.log("[GHL contact.pax]", contact.pax);
+    console.log("[GHL contact.numero_de_personas]", contact.numero_de_personas);
+    console.log("[GHL contact.customField]", JSON.stringify(contact).slice(0, 300));
 
     const reserva = parseGhlPayload(body);
     console.log("[GHL parsed] pax:", reserva.pax, "| nombre:", reserva.nombre);
