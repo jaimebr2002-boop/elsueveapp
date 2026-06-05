@@ -5,13 +5,14 @@ import { supabase, type Reserva } from "@/lib/supabase";
 
 const GHL_WIDGET_ID = "Hl5brk3tIbqlAJywDJUW";
 const GHL_SCRIPT_SRC = "https://api.leadconnectorhq.com/js/form_embed.js";
+const PAX_OPTS = [1,2,3,4,5,6,7,8,9,10];
 
 export default function ReservasPage() {
-  const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"widget" | "lista">("widget");
+  const [reservas, setReservas]     = useState<Reserva[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [tab, setTab]               = useState<"widget" | "lista">("widget");
+  const [editingPax, setEditingPax] = useState<string | null>(null); // reserva.id en edición
 
-  // Carga reservas desde Supabase
   const cargarReservas = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -19,39 +20,27 @@ export default function ReservasPage() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
-
     if (!error && data) setReservas(data as Reserva[]);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     cargarReservas();
-
-    // Realtime: escucha inserciones nuevas del webhook GHL
     const channel = supabase
       .channel("reservas-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "reservas" },
-        () => cargarReservas()
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => cargarReservas())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [cargarReservas]);
 
-  // Re-inyectar script GHL en cada visita al tab widget
   useEffect(() => {
     if (tab !== "widget") return;
-
     const stale = document.querySelector(`script[src="${GHL_SCRIPT_SRC}"]`);
     if (stale) stale.remove();
-
     const script = document.createElement("script");
     script.src = GHL_SCRIPT_SRC;
     script.async = true;
     document.body.appendChild(script);
-
     return () => {
       const s = document.querySelector(`script[src="${GHL_SCRIPT_SRC}"]`);
       if (s) s.remove();
@@ -63,9 +52,21 @@ export default function ReservasPage() {
     cargarReservas();
   };
 
+  const cambiarPax = async (id: string, pax: number) => {
+    await supabase.from("reservas").update({ pax, updated_at: new Date().toISOString() }).eq("id", id);
+    setEditingPax(null);
+    cargarReservas();
+  };
+
+  const eliminarReserva = async (id: string) => {
+    if (!confirm("¿Eliminar esta reserva? Esta acción no se puede deshacer.")) return;
+    await supabase.from("reservas").delete().eq("id", id);
+    cargarReservas();
+  };
+
   const estadoBadge = (estado: string) => {
     if (estado === "Confirmada") return <span className="badge bg">Confirmada</span>;
-    if (estado === "Pendiente") return <span className="badge by">Pendiente</span>;
+    if (estado === "Pendiente")  return <span className="badge by">Pendiente</span>;
     return <span className="badge bc">Cancelada</span>;
   };
 
@@ -93,7 +94,7 @@ export default function ReservasPage() {
           📅 Nueva reserva (GHL)
         </button>
         <button className={`tab${tab === "lista" ? " active" : ""}`} onClick={() => setTab("lista")}>
-          📋 Reservas guardadas {reservas.length > 0 && <span className="badge bd" style={{ marginLeft: 6 }}>{reservas.length}</span>}
+          📋 Reservas guardadas{reservas.length > 0 && <span className="badge bd" style={{ marginLeft: 6 }}>{reservas.length}</span>}
         </button>
       </div>
 
@@ -110,7 +111,7 @@ export default function ReservasPage() {
         </div>
       )}
 
-      {/* Lista de reservas */}
+      {/* Lista */}
       {tab === "lista" && (
         <div className="card">
           {loading ? (
@@ -120,9 +121,7 @@ export default function ReservasPage() {
           ) : reservas.length === 0 ? (
             <div className="cp" style={{ textAlign: "center" }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-              <div style={{ fontSize: 13, color: "var(--text2)" }}>
-                Aún no hay reservas guardadas.
-              </div>
+              <div style={{ fontSize: 13, color: "var(--text2)" }}>Aún no hay reservas guardadas.</div>
               <div style={{ fontSize: 11, color: "var(--text2)", marginTop: 4 }}>
                 Las reservas aparecerán aquí automáticamente cuando lleguen desde GoHighLevel.
               </div>
@@ -136,7 +135,7 @@ export default function ReservasPage() {
                     <th>Hora</th>
                     <th>Cliente</th>
                     <th>Tel.</th>
-                    <th>Pax</th>
+                    <th>Personas</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
@@ -147,21 +146,48 @@ export default function ReservasPage() {
                       <td style={{ fontWeight: 600 }}>{r.fecha ?? "—"}</td>
                       <td>{r.hora ?? "—"}</td>
                       <td>
-                        <div>{r.nombre}</div>
+                        <div style={{ fontWeight: 500 }}>{r.nombre}</div>
                         {r.email && <div style={{ fontSize: 11, color: "var(--text2)" }}>{r.email}</div>}
                       </td>
                       <td>
                         {r.tel ? (
-                          <button
-                            className="ibt wa"
-                            onClick={() => window.open(`https://wa.me/${r.tel!.replace(/\D/g, "")}`, "_blank")}
-                          >
+                          <button className="ibt wa" onClick={() => window.open(`https://wa.me/${r.tel!.replace(/\D/g, "")}`, "_blank")}>
                             {r.tel}
                           </button>
                         ) : "—"}
                       </td>
-                      <td>{r.pax ?? "—"}</td>
+
+                      {/* PAX — click para editar */}
+                      <td>
+                        {editingPax === r.id ? (
+                          <select
+                            className="fi"
+                            style={{ padding: "3px 6px", fontSize: 12, width: 70 }}
+                            defaultValue={r.pax ?? ""}
+                            autoFocus
+                            onBlur={() => setEditingPax(null)}
+                            onChange={(e) => cambiarPax(r.id, parseInt(e.target.value))}
+                          >
+                            <option value="" disabled>—</option>
+                            {PAX_OPTS.map(n => (
+                              <option key={n} value={n}>{n} pax</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <button
+                            className="ibt"
+                            style={{ minWidth: 52, textAlign: "center" }}
+                            title="Haz clic para editar"
+                            onClick={() => setEditingPax(r.id)}
+                          >
+                            {r.pax ? `${r.pax} pax` : "✎ —"}
+                          </button>
+                        )}
+                      </td>
+
                       <td>{estadoBadge(r.estado)}</td>
+
+                      {/* Acciones */}
                       <td>
                         <div className="tba">
                           {r.estado !== "Confirmada" && (
@@ -170,6 +196,15 @@ export default function ReservasPage() {
                           {r.estado !== "Cancelada" && (
                             <button className="ibt red" onClick={() => cambiarEstado(r.id, "Cancelada")}>Cancelar</button>
                           )}
+                          {/* Papelera — siempre visible */}
+                          <button
+                            className="ibt red"
+                            title="Eliminar reserva"
+                            onClick={() => eliminarReserva(r.id)}
+                            style={{ padding: "4px 7px" }}
+                          >
+                            🗑
+                          </button>
                         </div>
                       </td>
                     </tr>
