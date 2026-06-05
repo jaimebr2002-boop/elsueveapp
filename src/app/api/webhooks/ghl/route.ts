@@ -41,10 +41,14 @@ function parseGhlPayload(body: Record<string, unknown>) {
   const obs = (appointment.notes as string) ?? null;
   const ghl_id = (appointment.id as string) ?? (contact.id as string) ?? null;
 
-  // Número de personas — viene como string desde GHL, lo convertimos a número
-  const guestRaw = appointment.guests ?? body.guests ?? null;
-  const pax = guestRaw !== null && guestRaw !== "" && guestRaw !== "0"
-    ? parseInt(String(guestRaw), 10) || null
+  // Número de personas — campo custom {{contact.numero_de_personas}} mapeado como contact.pax en el body
+  const paxRaw =
+    contact.pax ??               // desde el body RAW del webhook
+    contact.numero_de_personas ?? // alternativa directa
+    appointment.guests ??          // fallback campo nativo GHL
+    null;
+  const pax = paxRaw !== null && paxRaw !== "" && paxRaw !== "0"
+    ? parseInt(String(paxRaw), 10) || null
     : null;
 
   return { nombre, tel, email, fecha, hora, obs, ghl_id, pax };
