@@ -220,11 +220,11 @@ function FilaReserva({ r, onEdit, onDelete, onCambiarEstado }: {
             onChange={(e) => { onEdit(r.id, parseInt(e.target.value)); setEditingPax(false); }}
           >
             <option value="" disabled>—</option>
-            {PAX_OPTS.map(n => <option key={n} value={n}>{n} pax</option>)}
+            {PAX_OPTS.map(n => <option key={n} value={n}>{n} pers</option>)}
           </select>
         ) : (
           <button className="ibt" style={{ minWidth: 52, textAlign: "center" }} title="Haz clic para editar" onClick={() => setEditingPax(true)}>
-            {r.pax ? `${r.pax} pax` : "✎ —"}
+            {r.pax ? `${r.pax} pers` : "✎ —"}
           </button>
         )}
       </td>
