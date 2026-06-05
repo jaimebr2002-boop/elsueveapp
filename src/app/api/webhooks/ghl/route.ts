@@ -38,10 +38,16 @@ function parseGhlPayload(body: Record<string, unknown>) {
     }
   }
 
-  const obs    = (appointment.notes as string) ?? null;
+  const obs = (appointment.notes as string) ?? null;
   const ghl_id = (appointment.id as string) ?? (contact.id as string) ?? null;
 
-  return { nombre, tel, email, fecha, hora, obs, ghl_id };
+  // Número de personas — viene como string desde GHL, lo convertimos a número
+  const guestRaw = appointment.guests ?? body.guests ?? null;
+  const pax = guestRaw !== null && guestRaw !== "" && guestRaw !== "0"
+    ? parseInt(String(guestRaw), 10) || null
+    : null;
+
+  return { nombre, tel, email, fecha, hora, obs, ghl_id, pax };
 }
 
 export async function POST(req: NextRequest) {
