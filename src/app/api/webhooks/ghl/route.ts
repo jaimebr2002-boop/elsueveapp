@@ -41,14 +41,23 @@ function parseGhlPayload(body: Record<string, unknown>) {
   const obs = (appointment.notes as string) ?? null;
   const ghl_id = (appointment.id as string) ?? (contact.id as string) ?? null;
 
-  // Número de personas — campo custom {{contact.numero_de_personas}} mapeado como contact.pax en el body
+  // Número de personas — varios formatos posibles según versión de GHL
+  const customField = (contact.customField as Record<string, unknown>) ?? {};
+  const customFields = (contact.customFields as Record<string, unknown>) ??
+                       (contact.custom_fields as Record<string, unknown>) ?? {};
+
   const paxRaw =
-    contact.pax ??               // desde el body RAW del webhook
-    contact.numero_de_personas ?? // alternativa directa
-    appointment.guests ??          // fallback campo nativo GHL
+    contact.pax ??                              // "pax": "{{contact.numero_de_personas}}"
+    contact.numero_de_personas ??               // directo sin alias
+    customField.numero_de_personas ??           // "{{contact.customField.numero_de_personas}}"
+    customFields.numero_de_personas ??          // variante snake_case
+    appointment.guests ??                        // campo nativo GHL
     null;
-  const pax = paxRaw !== null && paxRaw !== "" && paxRaw !== "0"
-    ? parseInt(String(paxRaw), 10) || null
+
+  // Descartar si GHL envió la plantilla sin resolver
+  const paxStr = paxRaw != null ? String(paxRaw) : "";
+  const pax = paxStr && !paxStr.includes("{{")
+    ? parseInt(paxStr, 10) || null
     : null;
 
   return { nombre, tel, email, fecha, hora, obs, ghl_id, pax };
