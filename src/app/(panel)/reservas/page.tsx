@@ -5,21 +5,238 @@ import { supabase, type Reserva } from "@/lib/supabase";
 
 const GHL_WIDGET_ID = "Hl5brk3tIbqlAJywDJUW";
 const GHL_SCRIPT_SRC = "https://api.leadconnectorhq.com/js/form_embed.js";
-const PAX_OPTS = [1,2,3,4,5,6,7,8,9,10];
+const PAX_OPTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const DIAS  = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 
+// ── Calendario ──────────────────────────────────────────────────────────────
+function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
+  reservas: Reserva[];
+  onEdit: (id: string, pax: number) => void;
+  onDelete: (id: string) => void;
+  onCambiarEstado: (id: string, estado: Reserva["estado"]) => void;
+}) {
+  const hoy = new Date();
+  const [year, setYear]       = useState(hoy.getFullYear());
+  const [month, setMonth]     = useState(hoy.getMonth());
+  const [diaActivo, setDiaActivo] = useState<string | null>(null); // "YYYY-MM-DD"
+
+  const prevMes = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const nextMes = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+
+  // Días del mes en grid lun-dom
+  const primerDia = new Date(year, month, 1);
+  const diasEnMes = new Date(year, month + 1, 0).getDate();
+  // getDay(): 0=dom,1=lun... → convertir a lun=0
+  const offset = (primerDia.getDay() + 6) % 7;
+  const celdas: (number | null)[] = [
+    ...Array(offset).fill(null),
+    ...Array.from({ length: diasEnMes }, (_, i) => i + 1),
+  ];
+  // Completar última fila
+  while (celdas.length % 7 !== 0) celdas.push(null);
+
+  // Reservas por día
+  const reservasPorDia = (dia: number) => {
+    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    return reservas.filter(r => r.fecha === key);
+  };
+
+  const diaKey = (dia: number) =>
+    `${year}-${String(month + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+
+  const esHoy = (dia: number) =>
+    dia === hoy.getDate() && month === hoy.getMonth() && year === hoy.getFullYear();
+
+  const reservasDiaActivo = diaActivo ? reservas.filter(r => r.fecha === diaActivo) : [];
+
+  return (
+    <div>
+      {/* Navegación */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <button className="btn btn-g btn-sm" onClick={prevMes}>‹ Anterior</button>
+        <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 16, color: "var(--dark)" }}>
+          {MESES[month]} {year}
+        </span>
+        <button className="btn btn-g btn-sm" onClick={nextMes}>Siguiente ›</button>
+      </div>
+
+      {/* Cabecera días */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+        {DIAS.map(d => (
+          <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.6px", padding: "4px 0" }}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Grid de días */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+        {celdas.map((dia, i) => {
+          if (!dia) return <div key={`e-${i}`} />;
+          const rs = reservasPorDia(dia);
+          const key = diaKey(dia);
+          const activo = diaActivo === key;
+          const confirmadas = rs.filter(r => r.estado === "Confirmada").length;
+          const pendientes  = rs.filter(r => r.estado === "Pendiente").length;
+          const canceladas  = rs.filter(r => r.estado === "Cancelada").length;
+
+          return (
+            <div
+              key={key}
+              onClick={() => setDiaActivo(activo ? null : key)}
+              style={{
+                minHeight: 64,
+                border: `1.5px solid ${activo ? "var(--warm)" : esHoy(dia) ? "var(--olive)" : "var(--border)"}`,
+                borderRadius: 8,
+                padding: "6px 8px",
+                cursor: rs.length > 0 || true ? "pointer" : "default",
+                background: activo ? "rgba(200,149,110,0.08)" : esHoy(dia) ? "rgba(107,124,89,0.05)" : "var(--card)",
+                transition: "all 140ms",
+              }}
+            >
+              <div style={{ fontWeight: esHoy(dia) ? 700 : 500, fontSize: 13, color: esHoy(dia) ? "var(--olive)" : "var(--dark)", marginBottom: 4 }}>
+                {dia}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {confirmadas > 0 && (
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--olive)", background: "rgba(107,124,89,0.1)", borderRadius: 4, padding: "1px 5px" }}>
+                    ✓ {confirmadas}
+                  </div>
+                )}
+                {pendientes > 0 && (
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "#B8860B", background: "#FFF8E1", borderRadius: 4, padding: "1px 5px" }}>
+                    ● {pendientes}
+                  </div>
+                )}
+                {canceladas > 0 && (
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--coral)", background: "rgba(217,119,87,0.1)", borderRadius: 4, padding: "1px 5px" }}>
+                    ✕ {canceladas}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Detalle día seleccionado */}
+      {diaActivo && (
+        <div style={{ marginTop: 16, border: "1.5px solid var(--warm)", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ background: "rgba(200,149,110,0.08)", padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 14, color: "var(--dark)" }}>
+              {diaActivo} — {reservasDiaActivo.length} reserva{reservasDiaActivo.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          {reservasDiaActivo.length === 0 ? (
+            <div style={{ padding: "16px", fontSize: 13, color: "var(--text2)", textAlign: "center" }}>
+              Sin reservas para este día
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Cliente</th>
+                  <th>Tel.</th>
+                  <th>Personas</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reservasDiaActivo
+                  .sort((a, b) => (a.hora ?? "").localeCompare(b.hora ?? ""))
+                  .map(r => (
+                    <FilaReserva key={r.id} r={r} onEdit={onEdit} onDelete={onDelete} onCambiarEstado={onCambiarEstado} />
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Fila reutilizable ────────────────────────────────────────────────────────
+function FilaReserva({ r, onEdit, onDelete, onCambiarEstado }: {
+  r: Reserva;
+  onEdit: (id: string, pax: number) => void;
+  onDelete: (id: string) => void;
+  onCambiarEstado: (id: string, estado: Reserva["estado"]) => void;
+}) {
+  const [editingPax, setEditingPax] = useState(false);
+
+  const estadoBadge = (estado: string) => {
+    if (estado === "Confirmada") return <span className="badge bg">Confirmada</span>;
+    if (estado === "Pendiente")  return <span className="badge by">Pendiente</span>;
+    return <span className="badge bc">Cancelada</span>;
+  };
+
+  return (
+    <tr>
+      <td style={{ fontWeight: 600 }}>{r.hora ?? "—"}</td>
+      <td>
+        <div style={{ fontWeight: 500 }}>{r.nombre}</div>
+        {r.email && <div style={{ fontSize: 11, color: "var(--text2)" }}>{r.email}</div>}
+      </td>
+      <td>
+        {r.tel ? (
+          <button className="ibt wa" onClick={() => window.open(`https://wa.me/${r.tel!.replace(/\D/g, "")}`, "_blank")}>
+            {r.tel}
+          </button>
+        ) : "—"}
+      </td>
+      <td>
+        {editingPax ? (
+          <select
+            className="fi"
+            style={{ padding: "3px 6px", fontSize: 12, width: 70 }}
+            defaultValue={r.pax ?? ""}
+            autoFocus
+            onBlur={() => setEditingPax(false)}
+            onChange={(e) => { onEdit(r.id, parseInt(e.target.value)); setEditingPax(false); }}
+          >
+            <option value="" disabled>—</option>
+            {PAX_OPTS.map(n => <option key={n} value={n}>{n} pax</option>)}
+          </select>
+        ) : (
+          <button className="ibt" style={{ minWidth: 52, textAlign: "center" }} title="Haz clic para editar" onClick={() => setEditingPax(true)}>
+            {r.pax ? `${r.pax} pax` : "✎ —"}
+          </button>
+        )}
+      </td>
+      <td>{estadoBadge(r.estado)}</td>
+      <td>
+        <div className="tba">
+          {r.estado !== "Confirmada" && (
+            <button className="ibt" onClick={() => onCambiarEstado(r.id, "Confirmada")}>✓ Confirmar</button>
+          )}
+          {r.estado !== "Cancelada" && (
+            <button className="ibt red" onClick={() => onCambiarEstado(r.id, "Cancelada")}>Cancelar</button>
+          )}
+          <button className="ibt red" title="Eliminar" onClick={() => onDelete(r.id)} style={{ padding: "4px 7px" }}>🗑</button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ── Página principal ─────────────────────────────────────────────────────────
 export default function ReservasPage() {
-  const [reservas, setReservas]     = useState<Reserva[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [tab, setTab]               = useState<"widget" | "lista">("widget");
-  const [editingPax, setEditingPax] = useState<string | null>(null); // reserva.id en edición
+  const [reservas, setReservas] = useState<Reserva[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [tab, setTab]           = useState<"widget" | "lista">("widget");
+  const [vista, setVista]       = useState<"calendario" | "lista">("calendario");
 
   const cargarReservas = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("reservas")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .order("fecha", { ascending: true })
+      .limit(200);
     if (!error && data) setReservas(data as Reserva[]);
     setLoading(false);
   }, []);
@@ -54,20 +271,13 @@ export default function ReservasPage() {
 
   const cambiarPax = async (id: string, pax: number) => {
     await supabase.from("reservas").update({ pax, updated_at: new Date().toISOString() }).eq("id", id);
-    setEditingPax(null);
     cargarReservas();
   };
 
   const eliminarReserva = async (id: string) => {
-    if (!confirm("¿Eliminar esta reserva? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar esta reserva? No se puede deshacer.")) return;
     await supabase.from("reservas").delete().eq("id", id);
     cargarReservas();
-  };
-
-  const estadoBadge = (estado: string) => {
-    if (estado === "Confirmada") return <span className="badge bg">Confirmada</span>;
-    if (estado === "Pendiente")  return <span className="badge by">Pendiente</span>;
-    return <span className="badge bc">Cancelada</span>;
   };
 
   return (
@@ -88,7 +298,7 @@ export default function ReservasPage() {
         <button className="btn btn-g btn-sm" onClick={cargarReservas}>↻ Actualizar</button>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs principales */}
       <div className="tabs">
         <button className={`tab${tab === "widget" ? " active" : ""}`} onClick={() => setTab("widget")}>
           📅 Nueva reserva (GHL)
@@ -111,107 +321,82 @@ export default function ReservasPage() {
         </div>
       )}
 
-      {/* Lista */}
+      {/* Reservas guardadas */}
       {tab === "lista" && (
-        <div className="card">
+        <div>
+          {/* Toggle calendario/lista */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            <button
+              className={`btn btn-sm ${vista === "calendario" ? "btn-p" : "btn-g"}`}
+              onClick={() => setVista("calendario")}
+            >
+              🗓 Calendario
+            </button>
+            <button
+              className={`btn btn-sm ${vista === "lista" ? "btn-p" : "btn-g"}`}
+              onClick={() => setVista("lista")}
+            >
+              ☰ Lista
+            </button>
+          </div>
+
           {loading ? (
-            <div className="cp" style={{ textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
+            <div className="card cp" style={{ textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
               Cargando reservas...
             </div>
-          ) : reservas.length === 0 ? (
-            <div className="cp" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-              <div style={{ fontSize: 13, color: "var(--text2)" }}>Aún no hay reservas guardadas.</div>
-              <div style={{ fontSize: 11, color: "var(--text2)", marginTop: 4 }}>
-                Las reservas aparecerán aquí automáticamente cuando lleguen desde GoHighLevel.
-              </div>
-            </div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Hora</th>
-                    <th>Cliente</th>
-                    <th>Tel.</th>
-                    <th>Personas</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reservas.map((r) => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: 600 }}>{r.fecha ?? "—"}</td>
-                      <td>{r.hora ?? "—"}</td>
-                      <td>
-                        <div style={{ fontWeight: 500 }}>{r.nombre}</div>
-                        {r.email && <div style={{ fontSize: 11, color: "var(--text2)" }}>{r.email}</div>}
-                      </td>
-                      <td>
-                        {r.tel ? (
-                          <button className="ibt wa" onClick={() => window.open(`https://wa.me/${r.tel!.replace(/\D/g, "")}`, "_blank")}>
-                            {r.tel}
-                          </button>
-                        ) : "—"}
-                      </td>
+            <>
+              {/* Vista calendario */}
+              {vista === "calendario" && (
+                <div className="card cp">
+                  <CalendarioReservas
+                    reservas={reservas}
+                    onEdit={cambiarPax}
+                    onDelete={eliminarReserva}
+                    onCambiarEstado={cambiarEstado}
+                  />
+                </div>
+              )}
 
-                      {/* PAX — click para editar */}
-                      <td>
-                        {editingPax === r.id ? (
-                          <select
-                            className="fi"
-                            style={{ padding: "3px 6px", fontSize: 12, width: 70 }}
-                            defaultValue={r.pax ?? ""}
-                            autoFocus
-                            onBlur={() => setEditingPax(null)}
-                            onChange={(e) => cambiarPax(r.id, parseInt(e.target.value))}
-                          >
-                            <option value="" disabled>—</option>
-                            {PAX_OPTS.map(n => (
-                              <option key={n} value={n}>{n} pax</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <button
-                            className="ibt"
-                            style={{ minWidth: 52, textAlign: "center" }}
-                            title="Haz clic para editar"
-                            onClick={() => setEditingPax(r.id)}
-                          >
-                            {r.pax ? `${r.pax} pax` : "✎ —"}
-                          </button>
-                        )}
-                      </td>
-
-                      <td>{estadoBadge(r.estado)}</td>
-
-                      {/* Acciones */}
-                      <td>
-                        <div className="tba">
-                          {r.estado !== "Confirmada" && (
-                            <button className="ibt" onClick={() => cambiarEstado(r.id, "Confirmada")}>✓ Confirmar</button>
-                          )}
-                          {r.estado !== "Cancelada" && (
-                            <button className="ibt red" onClick={() => cambiarEstado(r.id, "Cancelada")}>Cancelar</button>
-                          )}
-                          {/* Papelera — siempre visible */}
-                          <button
-                            className="ibt red"
-                            title="Eliminar reserva"
-                            onClick={() => eliminarReserva(r.id)}
-                            style={{ padding: "4px 7px" }}
-                          >
-                            🗑
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+              {/* Vista lista */}
+              {vista === "lista" && (
+                <div className="card">
+                  {reservas.length === 0 ? (
+                    <div className="cp" style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+                      <div style={{ fontSize: 13, color: "var(--text2)" }}>Aún no hay reservas guardadas.</div>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: "auto" }}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Cliente</th>
+                            <th>Tel.</th>
+                            <th>Personas</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reservas.map(r => (
+                            <FilaReserva
+                              key={r.id}
+                              r={r}
+                              onEdit={cambiarPax}
+                              onDelete={eliminarReserva}
+                              onCambiarEstado={cambiarEstado}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
