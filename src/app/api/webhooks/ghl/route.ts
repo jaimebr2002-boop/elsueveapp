@@ -62,7 +62,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
+    // Log completo del payload para depuración
+    console.log("[GHL payload]", JSON.stringify(body));
+
     const reserva = parseGhlPayload(body);
+    console.log("[GHL parsed] pax:", reserva.pax, "| nombre:", reserva.nombre);
     const db = getDb();
 
     // Si ya existe una reserva con el mismo ghl_id, la actualizamos
