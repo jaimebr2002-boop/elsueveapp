@@ -44,6 +44,36 @@ async function getContact(contactId: string) {
   return data.contact ?? data;
 }
 
+// Lee el pax desde la última form submission del contacto
+// GHL guarda campos custom con su ID interno en el campo "others"
+async function getPaxFromFormSubmission(contactId: string): Promise<number | null> {
+  const locationId = process.env.GHL_LOCATION_ID;
+  const fieldId    = process.env.GHL_PAX_FIELD_ID;
+  const formId     = process.env.GHL_FORM_ID;
+
+  if (!locationId || !fieldId) return null;
+
+  const params = new URLSearchParams({
+    locationId,
+    contactId,
+    ...(formId ? { formId } : {}),
+    limit: "1",
+    page:  "1",
+  });
+
+  const data = await ghlGet(`/forms/submissions?${params.toString()}`);
+  const submissions: unknown[] = data.submissions ?? [];
+
+  if (!submissions.length) return null;
+
+  const latest = submissions[0] as Record<string, unknown>;
+  const others  = (latest.others as Record<string, unknown>) ?? {};
+
+  // El campo pax está en others.{fieldId}
+  const raw = others[fieldId];
+  return safeNum(raw);
+}
+
 // Extrae pax de campos custom (array de {key, value} o {id, key, value})
 function extractCustomField(fields: unknown[], key: string): string | null {
   if (!Array.isArray(fields)) return null;
@@ -104,32 +134,13 @@ export async function POST(req: NextRequest) {
               safeNum(webhookContact.pax) ??
               null;
 
-    // Si no hay pax, consultar la API de GHL para obtener los datos completos
-    if (pax === null && (appointmentId || contactId)) {
+    // Obtener pax desde la form submission (fuente más fiable)
+    if (pax === null && contactId) {
       try {
-        if (appointmentId) {
-          const appt = await getAppointment(appointmentId);
-          console.log("[GHL API] appointment keys:", Object.keys(appt ?? {}).join(", "));
-
-          // Intentar extraer pax del appointment
-          const apptFields = (appt.customField ?? appt.customFields ?? []) as unknown[];
-          const apptPaxStr = extractCustomField(apptFields, "numero_de_personas");
-          pax = safeNum(appt.guests) ??
-                safeNum(appt.num_guests) ??
-                safeNum(appt.numGuests) ??
-                safeNum(apptPaxStr);
-        }
-
-        // Si aún no tenemos pax, intentar desde el contacto
-        if (pax === null && contactId) {
-          const contact = await getContact(contactId);
-          const ctFields = (contact.customField ?? contact.customFields ?? []) as unknown[];
-          console.log("[GHL API] contact customFields:", JSON.stringify(ctFields).slice(0, 300));
-          pax = safeNum(extractCustomField(ctFields, "numero_de_personas"));
-        }
+        pax = await getPaxFromFormSubmission(contactId);
+        console.log("[GHL pax from form submission]", pax);
       } catch (apiErr) {
-        console.error("[GHL API] Error:", String(apiErr));
-        // Continuamos sin pax — mejor guardar sin pax que no guardar
+        console.error("[GHL form submission error]", String(apiErr));
       }
     }
 
