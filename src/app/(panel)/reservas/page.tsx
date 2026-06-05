@@ -120,41 +120,62 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
         })}
       </div>
 
-      {/* Detalle día seleccionado */}
-      {diaActivo && (
-        <div style={{ marginTop: 16, border: "1.5px solid var(--warm)", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ background: "rgba(200,149,110,0.08)", padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 14, color: "var(--dark)" }}>
-              {diaActivo} — {reservasDiaActivo.length} reserva{reservasDiaActivo.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          {reservasDiaActivo.length === 0 ? (
-            <div style={{ padding: "16px", fontSize: 13, color: "var(--text2)", textAlign: "center" }}>
-              Sin reservas para este día
+      {/* Detalle día seleccionado con turnos */}
+      {diaActivo && (() => {
+        const sorted = [...reservasDiaActivo].sort((a, b) => (a.hora ?? "").localeCompare(b.hora ?? ""));
+        const comida = sorted.filter(r => (r.hora ?? "") >= "12:00" && (r.hora ?? "") < "17:00");
+        const cena   = sorted.filter(r => (r.hora ?? "") >= "19:00");
+        const otros  = sorted.filter(r => !comida.includes(r) && !cena.includes(r));
+
+        const TurnoTabla = ({ titulo, color, rs }: { titulo: string; color: string; rs: Reserva[] }) => (
+          <div>
+            <div style={{ padding: "8px 16px", background: color, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--dark)" }}>{titulo}</span>
+              <span className="badge bd">{rs.length} reserva{rs.length !== 1 ? "s" : ""}</span>
+              <span style={{ fontSize: 11, color: "var(--text2)" }}>
+                · {rs.reduce((s, r) => s + (r.pax ?? 0), 0)} personas
+              </span>
             </div>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Hora</th>
-                  <th>Cliente</th>
-                  <th>Tel.</th>
-                  <th>Personas</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reservasDiaActivo
-                  .sort((a, b) => (a.hora ?? "").localeCompare(b.hora ?? ""))
-                  .map(r => (
+            {rs.length === 0 ? (
+              <div style={{ padding: "10px 16px", fontSize: 12, color: "var(--text2)" }}>Sin reservas en este turno</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Hora</th><th>Cliente</th><th>Tel.</th><th>Personas</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody>
+                  {rs.map(r => (
                     <FilaReserva key={r.id} r={r} onEdit={onEdit} onDelete={onDelete} onCambiarEstado={onCambiarEstado} />
                   ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+
+        return (
+        <div style={{ marginTop: 16, border: "1.5px solid var(--warm)", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ background: "rgba(200,149,110,0.08)", padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 14, color: "var(--dark)" }}>
+              {diaActivo}
+            </span>
+            <span className="badge bw">{reservasDiaActivo.length} reservas</span>
+            <span className="badge bd">{reservasDiaActivo.reduce((s, r) => s + (r.pax ?? 0), 0)} personas</span>
+          </div>
+
+          {reservasDiaActivo.length === 0 ? (
+            <div style={{ padding: "16px", fontSize: 13, color: "var(--text2)", textAlign: "center" }}>Sin reservas para este día</div>
+          ) : (
+            <>
+              {otros.length > 0 && <TurnoTabla titulo="🕐 Otras horas" color="#fdfaf8" rs={otros} />}
+              <TurnoTabla titulo="☀️ Turno comida  · 12:00 – 17:00" color="rgba(107,124,89,0.05)" rs={comida} />
+              <TurnoTabla titulo="🌙 Turno cena  · 19:00 – 23:30" color="rgba(200,149,110,0.05)" rs={cena} />
+            </>
           )}
         </div>
-      )}
+        );
+      })()}
+
     </div>
   );
 }

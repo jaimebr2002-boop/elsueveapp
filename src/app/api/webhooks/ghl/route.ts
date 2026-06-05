@@ -10,8 +10,28 @@ function getDb() {
   );
 }
 
+function safeNum(val: unknown): number | null {
+  if (val == null) return null;
+  const s = String(val).trim();
+  // Ignorar placeholders sin resolver o strings nulos
+  if (!s || s === "null" || s === "undefined" || s.includes("{{")) return null;
+  const n = parseInt(s, 10);
+  return isNaN(n) || n <= 0 ? null : n;
+}
+
+function parseDate(startTime: string): { fecha: string | null; hora: string | null } {
+  if (!startTime || startTime.includes("{{")) return { fecha: null, hora: null };
+  const d = new Date(startTime);
+  if (isNaN(d.getTime())) return { fecha: null, hora: null };
+  // GHL manda hora en zona local del servidor — usamos getHours() para evitar desfase UTC
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fecha = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const hora  = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return { fecha, hora };
+}
+
 function parseGhlPayload(body: Record<string, unknown>) {
-  const contact = (body.contact as Record<string, unknown>) ?? {};
+  const contact     = (body.contact as Record<string, unknown>) ?? {};
   const appointment = (body.appointment as Record<string, unknown>) ?? {};
 
   const nombre =
@@ -22,44 +42,28 @@ function parseGhlPayload(body: Record<string, unknown>) {
   const tel   = (contact.phone as string) ?? null;
   const email = (contact.email as string) ?? null;
 
-  const startTime =
+  const startTimeRaw =
     (appointment.startTime as string) ??
     (appointment.start_time as string) ??
-    null;
+    "";
+  const { fecha, hora } = parseDate(startTimeRaw);
 
-  let fecha: string | null = null;
-  let hora: string | null  = null;
-
-  if (startTime) {
-    const d = new Date(startTime);
-    if (!isNaN(d.getTime())) {
-      fecha = d.toISOString().split("T")[0];
-      hora  = d.toTimeString().slice(0, 5);
-    }
-  }
-
-  // Guardar el body RAW en obs temporalmente para diagnosticar qué manda GHL
-  const obs = JSON.stringify(body).slice(0, 800);
+  const obs    = null; // eliminamos el debug — ya no necesitamos guardar el body RAW
   const ghl_id = (appointment.id as string) ?? (contact.id as string) ?? null;
 
-  // Número de personas — varios formatos posibles según versión de GHL
-  const customField = (contact.customField as Record<string, unknown>) ?? {};
+  // Número de personas: prioridad al campo nativo {{appointment.guests}}
+  // luego intentamos el campo custom en todos sus formatos posibles
+  const customField  = (contact.customField  as Record<string, unknown>) ?? {};
   const customFields = (contact.customFields as Record<string, unknown>) ??
                        (contact.custom_fields as Record<string, unknown>) ?? {};
 
-  const paxRaw =
-    contact.pax ??                              // "pax": "{{contact.numero_de_personas}}"
-    contact.numero_de_personas ??               // directo sin alias
-    customField.numero_de_personas ??           // "{{contact.customField.numero_de_personas}}"
-    customFields.numero_de_personas ??          // variante snake_case
-    appointment.guests ??                        // campo nativo GHL
+  const pax =
+    safeNum(appointment.guests) ??            // {{appointment.guests}} — nativo GHL ✓
+    safeNum(contact.pax) ??                   // alias que pusimos en el body
+    safeNum(customField.numero_de_personas) ?? // {{contact.customField.*}}
+    safeNum(customFields.numero_de_personas) ??
+    safeNum(contact.numero_de_personas) ??
     null;
-
-  // Descartar si GHL envió la plantilla sin resolver
-  const paxStr = paxRaw != null ? String(paxRaw) : "";
-  const pax = paxStr && !paxStr.includes("{{")
-    ? parseInt(paxStr, 10) || null
-    : null;
 
   return { nombre, tel, email, fecha, hora, obs, ghl_id, pax };
 }
