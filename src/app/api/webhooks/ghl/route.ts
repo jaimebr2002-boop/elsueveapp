@@ -38,7 +38,8 @@ function parseGhlPayload(body: Record<string, unknown>) {
     }
   }
 
-  const obs = (appointment.notes as string) ?? null;
+  // Guardar el body RAW en obs temporalmente para diagnosticar qué manda GHL
+  const obs = JSON.stringify(body).slice(0, 800);
   const ghl_id = (appointment.id as string) ?? (contact.id as string) ?? null;
 
   // Número de personas — varios formatos posibles según versión de GHL
