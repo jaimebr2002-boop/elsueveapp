@@ -44,8 +44,10 @@ async function getContact(contactId: string) {
   return data.contact ?? data;
 }
 
-// Lee el pax desde la última form submission del contacto
-// GHL guarda campos custom con su ID interno en el campo "others"
+// Lee el pax desde la última form submission del contacto.
+// GHL guarda campos custom con su ID interno en el campo "others".
+// IMPORTANTE: el endpoint no acepta contactId como filtro → traemos las últimas
+// submissions y buscamos la que corresponde a este contacto.
 async function getPaxFromFormSubmission(contactId: string): Promise<number | null> {
   const locationId = process.env.GHL_LOCATION_ID;
   const fieldId    = process.env.GHL_PAX_FIELD_ID;
@@ -55,22 +57,28 @@ async function getPaxFromFormSubmission(contactId: string): Promise<number | nul
 
   const params = new URLSearchParams({
     locationId,
-    contactId,
     ...(formId ? { formId } : {}),
-    limit: "1",
+    limit: "20",
     page:  "1",
   });
 
   const data = await ghlGet(`/forms/submissions?${params.toString()}`);
   const submissions: unknown[] = data.submissions ?? [];
 
-  if (!submissions.length) return null;
+  // Buscar la submission más reciente de este contacto
+  const match = submissions.find((s) => {
+    const sub = s as Record<string, unknown>;
+    return sub.contactId === contactId;
+  }) as Record<string, unknown> | undefined;
 
-  const latest = submissions[0] as Record<string, unknown>;
-  const others  = (latest.others as Record<string, unknown>) ?? {};
+  if (!match) {
+    console.log("[GHL form] No submission found for contactId:", contactId);
+    return null;
+  }
 
-  // El campo pax está en others.{fieldId}
-  const raw = others[fieldId];
+  const others = (match.others as Record<string, unknown>) ?? {};
+  const raw    = others[fieldId];
+  console.log("[GHL form] pax raw value:", raw, "fieldId:", fieldId);
   return safeNum(raw);
 }
 
