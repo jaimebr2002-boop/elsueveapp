@@ -300,9 +300,9 @@ textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
   .g2 { grid-template-columns: 1fr !important; }
   .g3 { grid-template-columns: 1fr !important; }
 
-  /* Tablas — scroll horizontal */
-  .card { overflow-x: auto; }
-  table { min-width: 480px; }
+  /* Tablas — scroll horizontal SOLO en el wrapper directo */
+  .tbl-x { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .tbl-x table { min-width: 480px; }
 
   /* Facturación summary */
   .fsum { flex-wrap: wrap; }

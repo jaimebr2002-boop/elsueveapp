@@ -168,16 +168,18 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
             {rs.length === 0 ? (
               <div style={{ padding: "10px 16px", fontSize: 12, color: "var(--text2)" }}>Sin reservas en este turno</div>
             ) : (
-              <table>
-                <thead>
-                  <tr><th>Hora</th><th>Cliente</th><th>Tel.</th><th>Personas</th><th>Estado</th><th>Acciones</th></tr>
-                </thead>
-                <tbody>
-                  {rs.map(r => (
-                    <FilaReserva key={r.id} r={r} onEdit={onEdit} onDelete={onDelete} onCambiarEstado={onCambiarEstado} />
-                  ))}
-                </tbody>
-              </table>
+              <div className="tbl-x">
+                <table>
+                  <thead>
+                    <tr><th>Hora</th><th>Cliente</th><th>Tel.</th><th>Personas</th><th>Estado</th><th>Acciones</th></tr>
+                  </thead>
+                  <tbody>
+                    {rs.map(r => (
+                      <FilaReserva key={r.id} r={r} onEdit={onEdit} onDelete={onDelete} onCambiarEstado={onCambiarEstado} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         );
@@ -426,7 +428,7 @@ export default function ReservasPage() {
                       <div style={{ fontSize: 13, color: "var(--text2)" }}>Aún no hay reservas guardadas.</div>
                     </div>
                   ) : (
-                    <div style={{ overflowX: "auto" }}>
+                    <div className="tbl-x">
                       <table>
                         <thead>
                           <tr>
