@@ -21,6 +21,14 @@ const nav = [
   },
 ];
 
+const bottomNav = [
+  { icon: "📊", label: "Dashboard", href: "/dashboard" },
+  { icon: "📅", label: "Reservas", href: "/reservas" },
+  { icon: "🍽️", label: "Carta", href: "/carta" },
+  { icon: "📦", label: "Stock", href: "/stock" },
+  { icon: "🧾", label: "Facturas", href: "/facturacion" },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
 
@@ -28,37 +36,52 @@ export default function Sidebar() {
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
   return (
-    <aside className="sidebar">
-      <div className="sb-logo">
-        <div className="name">El Sueve</div>
-        <div className="sub">Panel de gestión</div>
-      </div>
-
-      {nav.map(({ section, items }) => (
-        <div key={section}>
-          <div className="sb-sec">{section}</div>
-          {items.map(({ icon, label, href }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`sb-item${isActive(href) ? " active" : ""}`}
-            >
-              <span className="ic">{icon}</span>
-              {label}
-            </Link>
-          ))}
+    <>
+      <aside className="sidebar">
+        <div className="sb-logo">
+          <div className="name">El Sueve</div>
+          <div className="sub">Panel de gestión</div>
         </div>
-      ))}
 
-      <div className="sb-footer">
-        <div className="sb-role">
-          <div className="role-dot" />
-          <div>
-            <div className="role-name">Administrador</div>
-            <div className="role-sub">Vista completa</div>
+        {nav.map(({ section, items }) => (
+          <div key={section}>
+            <div className="sb-sec">{section}</div>
+            {items.map(({ icon, label, href }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`sb-item${isActive(href) ? " active" : ""}`}
+              >
+                <span className="ic">{icon}</span>
+                {label}
+              </Link>
+            ))}
+          </div>
+        ))}
+
+        <div className="sb-footer">
+          <div className="sb-role">
+            <div className="role-dot" />
+            <div>
+              <div className="role-name">Administrador</div>
+              <div className="role-sub">Vista completa</div>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+
+      <nav className="bnav">
+        {bottomNav.map(({ icon, label, href }) => (
+          <Link
+            key={href}
+            href={href}
+            className={`bnav-item${isActive(href) ? " active" : ""}`}
+          >
+            <span className="bnav-ic">{icon}</span>
+            {label}
+          </Link>
+        ))}
+      </nav>
+    </>
   );
 }

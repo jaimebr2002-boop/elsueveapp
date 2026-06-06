@@ -252,3 +252,73 @@ textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
 .lineas-table td { padding: 5px 7px; font-size: 12px; vertical-align: middle; }
 .lineas-table input { padding: 5px 7px; font-size: 12px; }
 .divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+/* ── Bottom navigation (solo móvil) ── */
+.bnav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: calc(60px + env(safe-area-inset-bottom));
+  background: var(--dark);
+  border-top: 1px solid rgba(255,255,255,.1);
+  z-index: 100;
+  align-items: stretch;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bnav-item {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px;
+  color: rgba(255,255,255,.4);
+  text-decoration: none;
+  font-size: 9px; font-weight: 600; letter-spacing: .4px;
+  transition: color 160ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.bnav-item.active { color: var(--warm); }
+.bnav-ic { font-size: 19px; line-height: 1; }
+
+/* ── Responsive mobile ── */
+@media (max-width: 768px) {
+  /* Shell */
+  .sidebar { display: none; }
+  .bnav { display: flex; }
+
+  /* Topbar */
+  .topbar { padding: 0 14px; height: 50px; }
+  .pg-title { font-size: 15px; }
+  .tb-hide { display: none !important; }
+
+  /* Content — deja espacio para la bottom nav */
+  .content {
+    padding: 12px 14px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  /* Grids */
+  .mg { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  .g2 { grid-template-columns: 1fr !important; }
+  .g3 { grid-template-columns: 1fr !important; }
+
+  /* Tablas — scroll horizontal */
+  .card { overflow-x: auto; }
+  table { min-width: 480px; }
+
+  /* Facturación summary */
+  .fsum { flex-wrap: wrap; }
+  .fsi { min-width: 50%; }
+
+  /* Cards padding compacto */
+  .cp { padding: 13px 15px; }
+
+  /* Tabs scroll horizontal */
+  .tabs { overflow-x: auto; scrollbar-width: none; padding-bottom: 0; }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  /* Metric card compacto */
+  .mv { font-size: 20px; }
+  .mc { padding: 13px 14px; }
+
+  /* Botones en topbar */
+  .btn-sm { font-size: 11px !important; }
+}

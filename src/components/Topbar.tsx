@@ -19,13 +19,13 @@ export default function Topbar() {
     <header className="topbar">
       <span className="pg-title">{title}</span>
       <div className="tb-right">
-        <div className="status-pill">
+        <div className="status-pill tb-hide">
           <span className="sdot" />
           Restaurante abierto
         </div>
-        <button className="btn btn-g btn-sm">⚙️ Config</button>
+        <button className="btn btn-g btn-sm tb-hide">⚙️ Config</button>
         <Link href="/reservas" className="btn btn-p btn-sm">
-          + Nueva reserva
+          + Reserva
         </Link>
       </div>
     </header>

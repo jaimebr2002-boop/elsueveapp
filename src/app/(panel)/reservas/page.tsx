@@ -9,6 +9,13 @@ const PAX_OPTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DIAS  = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 
+// Horario real del restaurante
+// Cerrado: miércoles (getDay() === 3)
+// Sin cena: domingo (0), martes (2)
+// Con cena (20:00–24:00): lunes (1), jueves (4), viernes (5), sábado (6)
+const DIAS_CERRADO  = new Set([3]);
+const DIAS_CON_CENA = new Set([1, 4, 5, 6]);
+
 // ── Calendario ──────────────────────────────────────────────────────────────
 function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
   reservas: Reserva[];
@@ -35,6 +42,10 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
   ];
   // Completar última fila
   while (celdas.length % 7 !== 0) celdas.push(null);
+
+  const diaSemana = (dia: number) => new Date(year, month, dia).getDay();
+  const esCerrado = (dia: number) => DIAS_CERRADO.has(diaSemana(dia));
+  const tieneCena = (dia: number) => DIAS_CON_CENA.has(diaSemana(dia));
 
   // Reservas por día
   const reservasPorDia = (dia: number) => {
@@ -77,6 +88,7 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
           const rs = reservasPorDia(dia);
           const key = diaKey(dia);
           const activo = diaActivo === key;
+          const cerrado = esCerrado(dia);
           const confirmadas = rs.filter(r => r.estado === "Confirmada").length;
           const pendientes  = rs.filter(r => r.estado === "Pendiente").length;
           const canceladas  = rs.filter(r => r.estado === "Cancelada").length;
@@ -90,31 +102,40 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
                 border: `1.5px solid ${activo ? "var(--warm)" : esHoy(dia) ? "var(--olive)" : "var(--border)"}`,
                 borderRadius: 8,
                 padding: "6px 8px",
-                cursor: rs.length > 0 || true ? "pointer" : "default",
-                background: activo ? "rgba(200,149,110,0.08)" : esHoy(dia) ? "rgba(107,124,89,0.05)" : "var(--card)",
+                cursor: "pointer",
+                background: cerrado
+                  ? "repeating-linear-gradient(135deg, #f5f1ee 0px, #f5f1ee 4px, #ede8e4 4px, #ede8e4 8px)"
+                  : activo ? "rgba(200,149,110,0.08)" : esHoy(dia) ? "rgba(107,124,89,0.05)" : "var(--card)",
+                opacity: cerrado ? 0.7 : 1,
                 transition: "all 140ms",
               }}
             >
-              <div style={{ fontWeight: esHoy(dia) ? 700 : 500, fontSize: 13, color: esHoy(dia) ? "var(--olive)" : "var(--dark)", marginBottom: 4 }}>
+              <div style={{ fontWeight: esHoy(dia) ? 700 : 500, fontSize: 13, color: cerrado ? "var(--text2)" : esHoy(dia) ? "var(--olive)" : "var(--dark)", marginBottom: 4 }}>
                 {dia}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {confirmadas > 0 && (
-                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--olive)", background: "rgba(107,124,89,0.1)", borderRadius: 4, padding: "1px 5px" }}>
-                    ✓ {confirmadas}
-                  </div>
-                )}
-                {pendientes > 0 && (
-                  <div style={{ fontSize: 10, fontWeight: 600, color: "#B8860B", background: "#FFF8E1", borderRadius: 4, padding: "1px 5px" }}>
-                    ● {pendientes}
-                  </div>
-                )}
-                {canceladas > 0 && (
-                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--coral)", background: "rgba(217,119,87,0.1)", borderRadius: 4, padding: "1px 5px" }}>
-                    ✕ {canceladas}
-                  </div>
-                )}
-              </div>
+              {cerrado ? (
+                <div style={{ fontSize: 9, fontWeight: 600, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.4px" }}>
+                  Cerrado
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {confirmadas > 0 && (
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "var(--olive)", background: "rgba(107,124,89,0.1)", borderRadius: 4, padding: "1px 5px" }}>
+                      ✓ {confirmadas}
+                    </div>
+                  )}
+                  {pendientes > 0 && (
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "#B8860B", background: "#FFF8E1", borderRadius: 4, padding: "1px 5px" }}>
+                      ● {pendientes}
+                    </div>
+                  )}
+                  {canceladas > 0 && (
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "var(--coral)", background: "rgba(217,119,87,0.1)", borderRadius: 4, padding: "1px 5px" }}>
+                      ✕ {canceladas}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -122,10 +143,18 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
 
       {/* Detalle día seleccionado con turnos */}
       {diaActivo && (() => {
+        const [dyStr, dmStr, ddStr] = diaActivo.split("-");
+        const diaNum = parseInt(ddStr);
+        const cerradoHoy = esCerrado(diaNum);
+        const cenaDia    = tieneCena(diaNum);
+
         const sorted = [...reservasDiaActivo].sort((a, b) => (a.hora ?? "").localeCompare(b.hora ?? ""));
-        const comida = sorted.filter(r => (r.hora ?? "") >= "12:00" && (r.hora ?? "") < "17:00");
-        const cena   = sorted.filter(r => (r.hora ?? "") >= "19:00");
+        const comida = sorted.filter(r => (r.hora ?? "") >= "12:00" && (r.hora ?? "") < "16:00");
+        const cena   = sorted.filter(r => (r.hora ?? "") >= "20:00");
         const otros  = sorted.filter(r => !comida.includes(r) && !cena.includes(r));
+
+        const nombreDia = new Date(parseInt(dyStr), parseInt(dmStr) - 1, diaNum)
+          .toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 
         const TurnoTabla = ({ titulo, color, rs }: { titulo: string; color: string; rs: Reserva[] }) => (
           <div>
@@ -156,20 +185,29 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado }: {
         return (
         <div style={{ marginTop: 16, border: "1.5px solid var(--warm)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ background: "rgba(200,149,110,0.08)", padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 14, color: "var(--dark)" }}>
-              {diaActivo}
+            <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 14, color: "var(--dark)", textTransform: "capitalize" }}>
+              {nombreDia}
             </span>
-            <span className="badge bw">{reservasDiaActivo.length} reservas</span>
-            <span className="badge bd">{reservasDiaActivo.reduce((s, r) => s + (r.pax ?? 0), 0)} personas</span>
+            {!cerradoHoy && (
+              <>
+                <span className="badge bw">{reservasDiaActivo.length} reservas</span>
+                <span className="badge bd">{reservasDiaActivo.reduce((s, r) => s + (r.pax ?? 0), 0)} personas</span>
+              </>
+            )}
           </div>
 
-          {reservasDiaActivo.length === 0 ? (
+          {cerradoHoy ? (
+            <div style={{ padding: "24px 16px", fontSize: 13, color: "var(--text2)", textAlign: "center" }}>
+              <div style={{ fontSize: 24, marginBottom: 6 }}>🔒</div>
+              Restaurante cerrado este día
+            </div>
+          ) : reservasDiaActivo.length === 0 ? (
             <div style={{ padding: "16px", fontSize: 13, color: "var(--text2)", textAlign: "center" }}>Sin reservas para este día</div>
           ) : (
             <>
               {otros.length > 0 && <TurnoTabla titulo="🕐 Otras horas" color="#fdfaf8" rs={otros} />}
-              <TurnoTabla titulo="☀️ Turno comida  · 12:00 – 17:00" color="rgba(107,124,89,0.05)" rs={comida} />
-              <TurnoTabla titulo="🌙 Turno cena  · 19:00 – 23:30" color="rgba(200,149,110,0.05)" rs={cena} />
+              <TurnoTabla titulo="☀️ Turno comida  · 12:00 – 16:00" color="rgba(107,124,89,0.05)" rs={comida} />
+              {cenaDia && <TurnoTabla titulo="🌙 Turno cena  · 20:00 – 24:00" color="rgba(200,149,110,0.05)" rs={cena} />}
             </>
           )}
         </div>
