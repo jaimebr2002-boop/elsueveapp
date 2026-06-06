@@ -3,8 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase, type Reserva } from "@/lib/supabase";
 
-const GHL_WIDGET_ID = "Hl5brk3tIbqlAJywDJUW";
-const GHL_SCRIPT_SRC = "https://api.leadconnectorhq.com/js/form_embed.js";
 const PAX_OPTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DIAS  = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
@@ -288,7 +286,6 @@ function FilaReserva({ r, onEdit, onDelete, onCambiarEstado }: {
 export default function ReservasPage() {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<"widget" | "lista">("widget");
   const [vista, setVista]       = useState<"calendario" | "lista">("calendario");
 
   const cargarReservas = useCallback(async () => {
@@ -310,20 +307,6 @@ export default function ReservasPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [cargarReservas]);
-
-  useEffect(() => {
-    if (tab !== "widget") return;
-    const stale = document.querySelector(`script[src="${GHL_SCRIPT_SRC}"]`);
-    if (stale) stale.remove();
-    const script = document.createElement("script");
-    script.src = GHL_SCRIPT_SRC;
-    script.async = true;
-    document.body.appendChild(script);
-    return () => {
-      const s = document.querySelector(`script[src="${GHL_SCRIPT_SRC}"]`);
-      if (s) s.remove();
-    };
-  }, [tab]);
 
   const cambiarEstado = async (id: string, estado: Reserva["estado"]) => {
     await supabase.from("reservas").update({ estado, updated_at: new Date().toISOString() }).eq("id", id);
@@ -353,74 +336,48 @@ export default function ReservasPage() {
             <span className="badge bg">● Sistema conectado</span>
           </div>
           <p style={{ fontSize: 12, color: "var(--text2)" }}>
-            Las reservas de GoHighLevel se guardan automáticamente
+            {reservas.length > 0 ? `${reservas.length} reservas en total` : "Sin reservas registradas"}
           </p>
         </div>
         <button className="btn btn-g btn-sm" onClick={cargarReservas}>↻ Actualizar</button>
       </div>
 
-      {/* Tabs principales */}
-      <div className="tabs">
-        <button className={`tab${tab === "widget" ? " active" : ""}`} onClick={() => setTab("widget")}>
-          📅 Nueva reserva (GHL)
+      {/* Toggle calendario/lista */}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          className={`btn btn-sm ${vista === "calendario" ? "btn-p" : "btn-g"}`}
+          onClick={() => setVista("calendario")}
+        >
+          🗓 Calendario
         </button>
-        <button className={`tab${tab === "lista" ? " active" : ""}`} onClick={() => setTab("lista")}>
-          📋 Reservas guardadas{reservas.length > 0 && <span className="badge bd" style={{ marginLeft: 6 }}>{reservas.length}</span>}
+        <button
+          className={`btn btn-sm ${vista === "lista" ? "btn-p" : "btn-g"}`}
+          onClick={() => setVista("lista")}
+        >
+          ☰ Lista{reservas.length > 0 && <span className="badge bd" style={{ marginLeft: 6 }}>{reservas.length}</span>}
         </button>
       </div>
 
-      {/* Widget GHL */}
-      {tab === "widget" && (
-        <div className="card" style={{ overflow: "hidden" }}>
-          <iframe
-            id={GHL_WIDGET_ID}
-            src={`https://api.leadconnectorhq.com/widget/booking/${GHL_WIDGET_ID}`}
-            style={{ width: "100%", minHeight: 600, border: "none", overflow: "hidden", display: "block" }}
-            scrolling="no"
-            title="Reservas — El Sueve"
-          />
+      {loading ? (
+        <div className="card cp" style={{ textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
+          Cargando reservas...
         </div>
-      )}
-
-      {/* Reservas guardadas */}
-      {tab === "lista" && (
-        <div>
-          {/* Toggle calendario/lista */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <button
-              className={`btn btn-sm ${vista === "calendario" ? "btn-p" : "btn-g"}`}
-              onClick={() => setVista("calendario")}
-            >
-              🗓 Calendario
-            </button>
-            <button
-              className={`btn btn-sm ${vista === "lista" ? "btn-p" : "btn-g"}`}
-              onClick={() => setVista("lista")}
-            >
-              ☰ Lista
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="card cp" style={{ textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
-              Cargando reservas...
+      ) : (
+        <>
+          {/* Vista calendario */}
+          {vista === "calendario" && (
+            <div className="card cp">
+              <CalendarioReservas
+                reservas={reservas}
+                onEdit={cambiarPax}
+                onDelete={eliminarReserva}
+                onCambiarEstado={cambiarEstado}
+              />
             </div>
-          ) : (
-            <>
-              {/* Vista calendario */}
-              {vista === "calendario" && (
-                <div className="card cp">
-                  <CalendarioReservas
-                    reservas={reservas}
-                    onEdit={cambiarPax}
-                    onDelete={eliminarReserva}
-                    onCambiarEstado={cambiarEstado}
-                  />
-                </div>
-              )}
+          )}
 
-              {/* Vista lista */}
-              {vista === "lista" && (
+          {/* Vista lista */}
+          {vista === "lista" && (
                 <div className="card">
                   {reservas.length === 0 ? (
                     <div className="cp" style={{ textAlign: "center" }}>
@@ -457,9 +414,7 @@ export default function ReservasPage() {
                   )}
                 </div>
               )}
-            </>
-          )}
-        </div>
+        </>
       )}
     </div>
   );
