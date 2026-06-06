@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase, type Reserva } from "@/lib/supabase";
 
+const WIDGET_ID  = "Hl5brk3tIbqlAJywDJUW";
+const WIDGET_SRC = "https://api.leadconnectorhq.com/js/form_embed.js";
 const PAX_OPTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DIAS  = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
@@ -286,6 +288,7 @@ function FilaReserva({ r, onEdit, onDelete, onCambiarEstado }: {
 export default function ReservasPage() {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [tab, setTab]           = useState<"nueva" | "lista">("nueva");
   const [vista, setVista]       = useState<"calendario" | "lista">("calendario");
 
   const cargarReservas = useCallback(async () => {
@@ -307,6 +310,20 @@ export default function ReservasPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [cargarReservas]);
+
+  useEffect(() => {
+    if (tab !== "nueva") return;
+    const stale = document.querySelector(`script[src="${WIDGET_SRC}"]`);
+    if (stale) stale.remove();
+    const script = document.createElement("script");
+    script.src = WIDGET_SRC;
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      const s = document.querySelector(`script[src="${WIDGET_SRC}"]`);
+      if (s) s.remove();
+    };
+  }, [tab]);
 
   const cambiarEstado = async (id: string, estado: Reserva["estado"]) => {
     await supabase.from("reservas").update({ estado, updated_at: new Date().toISOString() }).eq("id", id);
@@ -336,48 +353,74 @@ export default function ReservasPage() {
             <span className="badge bg">● Sistema conectado</span>
           </div>
           <p style={{ fontSize: 12, color: "var(--text2)" }}>
-            {reservas.length > 0 ? `${reservas.length} reservas en total` : "Sin reservas registradas"}
+            Las reservas online se guardan automáticamente
           </p>
         </div>
         <button className="btn btn-g btn-sm" onClick={cargarReservas}>↻ Actualizar</button>
       </div>
 
-      {/* Toggle calendario/lista */}
-      <div style={{ display: "flex", gap: 6 }}>
-        <button
-          className={`btn btn-sm ${vista === "calendario" ? "btn-p" : "btn-g"}`}
-          onClick={() => setVista("calendario")}
-        >
-          🗓 Calendario
+      {/* Tabs principales */}
+      <div className="tabs">
+        <button className={`tab${tab === "nueva" ? " active" : ""}`} onClick={() => setTab("nueva")}>
+          📅 Nueva reserva
         </button>
-        <button
-          className={`btn btn-sm ${vista === "lista" ? "btn-p" : "btn-g"}`}
-          onClick={() => setVista("lista")}
-        >
-          ☰ Lista{reservas.length > 0 && <span className="badge bd" style={{ marginLeft: 6 }}>{reservas.length}</span>}
+        <button className={`tab${tab === "lista" ? " active" : ""}`} onClick={() => setTab("lista")}>
+          📋 Reservas guardadas{reservas.length > 0 && <span className="badge bd" style={{ marginLeft: 6 }}>{reservas.length}</span>}
         </button>
       </div>
 
-      {loading ? (
-        <div className="card cp" style={{ textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
-          Cargando reservas...
+      {/* Widget de reservas */}
+      {tab === "nueva" && (
+        <div className="card" style={{ overflow: "hidden" }}>
+          <iframe
+            id={WIDGET_ID}
+            src={`https://api.leadconnectorhq.com/widget/booking/${WIDGET_ID}`}
+            style={{ width: "100%", minHeight: 600, border: "none", overflow: "hidden", display: "block" }}
+            scrolling="no"
+            title="Nueva reserva — El Sueve"
+          />
         </div>
-      ) : (
-        <>
-          {/* Vista calendario */}
-          {vista === "calendario" && (
-            <div className="card cp">
-              <CalendarioReservas
-                reservas={reservas}
-                onEdit={cambiarPax}
-                onDelete={eliminarReserva}
-                onCambiarEstado={cambiarEstado}
-              />
-            </div>
-          )}
+      )}
 
-          {/* Vista lista */}
-          {vista === "lista" && (
+      {/* Reservas guardadas */}
+      {tab === "lista" && (
+        <div>
+          {/* Toggle calendario/lista */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            <button
+              className={`btn btn-sm ${vista === "calendario" ? "btn-p" : "btn-g"}`}
+              onClick={() => setVista("calendario")}
+            >
+              🗓 Calendario
+            </button>
+            <button
+              className={`btn btn-sm ${vista === "lista" ? "btn-p" : "btn-g"}`}
+              onClick={() => setVista("lista")}
+            >
+              ☰ Lista
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="card cp" style={{ textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
+              Cargando reservas...
+            </div>
+          ) : (
+            <>
+              {/* Vista calendario */}
+              {vista === "calendario" && (
+                <div className="card cp">
+                  <CalendarioReservas
+                    reservas={reservas}
+                    onEdit={cambiarPax}
+                    onDelete={eliminarReserva}
+                    onCambiarEstado={cambiarEstado}
+                  />
+                </div>
+              )}
+
+              {/* Vista lista */}
+              {vista === "lista" && (
                 <div className="card">
                   {reservas.length === 0 ? (
                     <div className="cp" style={{ textAlign: "center" }}>
@@ -414,7 +457,9 @@ export default function ReservasPage() {
                   )}
                 </div>
               )}
-        </>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
