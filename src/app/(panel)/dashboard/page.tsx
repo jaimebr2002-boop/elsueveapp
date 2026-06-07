@@ -148,7 +148,7 @@ export default function DashboardPage() {
         <div className="cp" style={{ paddingBottom: 0 }}>
           <div className="ch">
             <span className="ct">Reservas de hoy</span>
-            <button className="btn btn-g btn-sm">Ver todas →</button>
+            <a href="/reservas" className="btn btn-g btn-sm">Ver todas →</a>
           </div>
         </div>
         <div className="tbl-x">
@@ -164,31 +164,11 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {[
-                { hora: "13:00", mesa: 7,  cliente: "García Ruiz, Carlos",       pax: 4, estado: "Confirmada" },
-                { hora: "13:30", mesa: 12, cliente: "López Ibáñez, Sofía",       pax: 2, estado: "Confirmada" },
-                { hora: "14:00", mesa: 3,  cliente: "Martínez López, Ana",       pax: 6, estado: "Pendiente"  },
-                { hora: "21:00", mesa: 9,  cliente: "Rodríguez Vega, Miguel",    pax: 3, estado: "Confirmada" },
-              ].map((r, i) => (
-                <tr key={i}>
-                  <td style={{ fontWeight: 600 }}>{r.hora}</td>
-                  <td>Mesa {r.mesa}</td>
-                  <td>{r.cliente}</td>
-                  <td>{r.pax} pax</td>
-                  <td>
-                    <span className={`badge ${r.estado === "Confirmada" ? "bg" : "by"}`}>
-                      {r.estado}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="tba">
-                      <button className="ibt">✏️</button>
-                      <button className="ibt wa">WhatsApp</button>
-                      <button className="ibt red">Cancelar</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              <tr>
+                <td colSpan={6} style={{ textAlign: "center", padding: "28px 16px", color: "var(--text2)", fontSize: 13 }}>
+                  Sin reservas para hoy
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

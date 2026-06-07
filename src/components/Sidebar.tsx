@@ -21,7 +21,7 @@ export default function Sidebar() {
     <>
       <aside className="sidebar">
         <div className="sb-logo">
-          <div className="name">ES</div>
+          <div className="name" style={{ fontSize: 13, letterSpacing: "-.2px" }}>El Sueve</div>
         </div>
 
         <nav className="sb-nav">
