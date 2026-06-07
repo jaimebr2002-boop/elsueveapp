@@ -1,5 +1,37 @@
-export default function DashboardPage() {
-  const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
+import { createServiceClient } from "@/lib/supabase";
+import type { Reserva } from "@/lib/supabase";
+import { revalidatePath } from "next/cache";
+
+const CAPACIDAD_TOTAL = 85;
+
+async function eliminarReserva(formData: FormData) {
+  "use server";
+  const id = formData.get("id") as string;
+  if (!id) return;
+  const sb = createServiceClient();
+  await sb.from("reservas").delete().eq("id", id);
+  revalidatePath("/dashboard");
+}
+
+export default async function DashboardPage() {
+  const sb = createServiceClient();
+  const hoy = new Date().toISOString().split("T")[0];
+
+  const { data } = await sb
+    .from("reservas")
+    .select("*")
+    .eq("fecha", hoy)
+    .neq("estado", "Cancelada")
+    .order("hora");
+
+  const reservas = (data ?? []) as Reserva[];
+
+  const aforoOcupado  = reservas.reduce((s, r) => s + (r.pax ?? 0), 0);
+  const pctAforo      = Math.min(Math.round((aforoOcupado / CAPACIDAD_TOTAL) * 100), 100);
+  const confirmadas   = reservas.filter(r => r.estado === "Confirmada").length;
+  const pendientes    = reservas.filter(r => r.estado === "Pendiente").length;
+
+  const DIAS    = ["L", "M", "X", "J", "V", "S", "D"];
   const valores = [45, 38, 52, 67, 89, 95, 78];
   const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
 
@@ -9,27 +41,16 @@ export default function DashboardPage() {
       {/* Hero banner */}
       <div
         className="card"
-        style={{
-          background: "var(--dark)",
-          position: "relative",
-          overflow: "hidden",
-          padding: "24px 28px",
-        }}
+        style={{ background: "var(--dark)", position: "relative", overflow: "hidden", padding: "24px 28px" }}
       >
-        {/* Grid texture overlay */}
-        <div
-          style={{
-            position: "absolute", inset: 0, pointerEvents: "none",
-            backgroundImage: `
-              linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)
-            `,
-            backgroundSize: "28px 28px",
-          }}
-        />
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: `linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px)`,
+          backgroundSize: "28px 28px",
+        }} />
         <div style={{ position: "relative", zIndex: 1 }}>
           <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".8px", color: "rgba(255,255,255,.4)", marginBottom: 6 }}>
-            Restaurante El Sueve · Sábado 7 junio 2026
+            Restaurante El Sueve · {new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </div>
           <div style={{ fontFamily: "var(--font-playfair)", fontSize: 26, fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: 12 }}>
             Buenas tardes, bienvenido 👋
@@ -42,10 +63,14 @@ export default function DashboardPage() {
                 Abierto · Servicio comida
               </span>
             </div>
-            <div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".6px", marginBottom: 2 }}>Próxima reserva</div>
-              <div style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>14:00 — Mesa 3 · Martínez López (6 pax)</div>
-            </div>
+            {reservas.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".6px", marginBottom: 2 }}>Próxima reserva</div>
+                <div style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>
+                  {reservas[0].hora} — {reservas[0].nombre} ({reservas[0].pax} pax)
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -55,15 +80,17 @@ export default function DashboardPage() {
         <div className="mc">
           <div className="mic mi-o">🪑</div>
           <div className="ml">Aforo actual</div>
-          <div className="mv">32 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text2)" }}>/ 85</span></div>
-          <div className="ms">38% de capacidad</div>
-          <div className="pbar"><div className="pf pf-o" style={{ width: "38%" }} /></div>
+          <div className="mv">
+            {aforoOcupado} <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text2)" }}>/ {CAPACIDAD_TOTAL}</span>
+          </div>
+          <div className="ms">{pctAforo}% de capacidad</div>
+          <div className="pbar"><div className="pf pf-o" style={{ width: `${pctAforo}%` }} /></div>
         </div>
         <div className="mc">
           <div className="mic mi-w">📅</div>
           <div className="ml">Reservas hoy</div>
-          <div className="mv">8</div>
-          <div className="ms">6 confirmadas · 2 pendientes</div>
+          <div className="mv">{reservas.length}</div>
+          <div className="ms">{confirmadas} confirmadas · {pendientes} pendientes</div>
         </div>
         <div className="mc">
           <div className="mic mi-c">📦</div>
@@ -81,7 +108,6 @@ export default function DashboardPage() {
 
       {/* Charts row */}
       <div className="g2">
-        {/* Pill bar chart */}
         <div className="card cp">
           <div className="ch">
             <span className="ct">Aforo semanal</span>
@@ -92,16 +118,14 @@ export default function DashboardPage() {
               const isToday = i === todayIdx;
               return (
                 <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <div
-                    style={{
-                      width: "62%",
-                      height: `${(v / 100) * 124}px`,
-                      background: isToday ? "var(--warm)" : "var(--dark)",
-                      borderRadius: "50px",
-                      opacity: isToday ? 1 : 0.55,
-                      transition: "height .25s",
-                    }}
-                  />
+                  <div style={{
+                    width: "62%",
+                    height: `${(v / 100) * 124}px`,
+                    background: isToday ? "var(--warm)" : "var(--dark)",
+                    borderRadius: "50px",
+                    opacity: isToday ? 1 : 0.55,
+                    transition: "height .25s",
+                  }} />
                   <span style={{ fontSize: 9, fontWeight: isToday ? 700 : 400, color: isToday ? "var(--dark)" : "var(--text2)" }}>
                     {DIAS[i]}
                   </span>
@@ -111,7 +135,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Alerts */}
         <div className="card cp">
           <div className="ch">
             <span className="ct">Alertas activas</span>
@@ -143,7 +166,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Reservas table */}
+      {/* Reservas de hoy */}
       <div className="card">
         <div className="cp" style={{ paddingBottom: 0 }}>
           <div className="ch">
@@ -156,7 +179,6 @@ export default function DashboardPage() {
             <thead>
               <tr>
                 <th>Hora</th>
-                <th>Mesa</th>
                 <th>Cliente</th>
                 <th>Pax</th>
                 <th>Estado</th>
@@ -164,11 +186,44 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: "28px 16px", color: "var(--text2)", fontSize: 13 }}>
-                  Sin reservas para hoy
-                </td>
-              </tr>
+              {reservas.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "28px 16px", color: "var(--text2)", fontSize: 13 }}>
+                    Sin reservas para hoy
+                  </td>
+                </tr>
+              ) : (
+                reservas.map(r => (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 600 }}>{r.hora ?? "—"}</td>
+                    <td>{r.nombre}</td>
+                    <td>{r.pax ?? "—"} pax</td>
+                    <td>
+                      <span className={`badge ${r.estado === "Confirmada" ? "bg" : r.estado === "Pendiente" ? "by" : "bc"}`}>
+                        {r.estado}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="tba">
+                        {r.tel && (
+                          <a
+                            href={`https://wa.me/${r.tel.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ibt wa"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
+                        <form action={eliminarReserva} style={{ display: "inline" }}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <button type="submit" className="ibt red">Eliminar</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
