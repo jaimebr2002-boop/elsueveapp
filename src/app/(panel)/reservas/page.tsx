@@ -6,7 +6,7 @@ import { MESAS, getMesa, asignarMesa, horasConflictan } from "@/lib/mesas";
 
 const WIDGET_ID  = "Hl5brk3tIbqlAJywDJUW";
 const WIDGET_SRC = "https://api.leadconnectorhq.com/js/form_embed.js";
-const PAX_OPTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const PAX_OPTS   = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DIAS  = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 
@@ -30,12 +30,6 @@ function FilaReserva({ r, onEdit, onDelete, onCambiarEstado, onCambiarMesa }: {
     if (estado === "Confirmada") return <span className="badge bg">Confirmada</span>;
     if (estado === "Pendiente")  return <span className="badge by">Pendiente</span>;
     return <span className="badge bc">Cancelada</span>;
-  };
-
-  const zonaBadge = (zona: string) => {
-    if (zona === "Terraza") return <span style={{ fontSize: 9, color: "var(--olive)", fontWeight: 600, marginLeft: 3 }}>T</span>;
-    if (zona === "Privado") return <span style={{ fontSize: 9, color: "var(--warm)", fontWeight: 600, marginLeft: 3 }}>P</span>;
-    return null;
   };
 
   return (
@@ -87,23 +81,17 @@ function FilaReserva({ r, onEdit, onDelete, onCambiarEstado, onCambiarMesa }: {
           >
             <option value="">Sin mesa</option>
             {MESAS.map(m => (
-              <option key={m.id} value={m.id}>
-                Mesa {m.id} — {m.cap} pax · {m.zona}
-              </option>
+              <option key={m.id} value={m.id}>Mesa {m.id} — {m.cap} pax</option>
             ))}
           </select>
         ) : (
           <button
             className="ibt"
-            style={{ minWidth: 80, textAlign: "center" }}
+            style={{ minWidth: 72, textAlign: "center" }}
             title="Haz clic para cambiar mesa"
             onClick={() => setEditingMesa(true)}
           >
-            {mesa ? (
-              <>Mesa {mesa.id}{zonaBadge(mesa.zona)}</>
-            ) : (
-              <span style={{ color: "var(--coral)" }}>✎ Asignar</span>
-            )}
+            {mesa ? `Mesa ${mesa.id}` : <span style={{ color: "var(--coral)" }}>✎ Asignar</span>}
           </button>
         )}
       </td>
@@ -178,9 +166,7 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado, onCam
         <div className="tbl-x">
           <table>
             <thead>
-              <tr>
-                <th>Hora</th><th>Cliente</th><th>Tel.</th><th>Personas</th><th>Mesa</th><th>Estado</th><th>Acciones</th>
-              </tr>
+              <tr><th>Hora</th><th>Cliente</th><th>Tel.</th><th>Personas</th><th>Mesa</th><th>Estado</th><th>Acciones</th></tr>
             </thead>
             <tbody>
               {rs.map(r => (
@@ -255,7 +241,7 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado, onCam
 
       {diaActivo && (() => {
         const [dyStr, dmStr, ddStr] = diaActivo.split("-");
-        const diaNum = parseInt(ddStr);
+        const diaNum    = parseInt(ddStr);
         const cerradoHoy = esCerrado(diaNum);
         const cenaDia    = tieneCena(diaNum);
         const sorted     = [...reservasDiaActivo].sort((a, b) => (a.hora ?? "").localeCompare(b.hora ?? ""));
@@ -340,7 +326,6 @@ export default function ReservasPage() {
     };
   }, [tab]);
 
-  // Devuelve qué mesas ya están ocupadas para una reserva concreta (excluyendo esa misma)
   const getOcupadas = (fecha: string, hora: string | null, excludeId: string): Set<number> =>
     new Set(
       reservas
@@ -362,8 +347,6 @@ export default function ReservasPage() {
   const cambiarPax = async (id: string, pax: number) => {
     const reserva = reservas.find(r => r.id === id);
     await supabase.from("reservas").update({ pax, updated_at: new Date().toISOString() }).eq("id", id);
-
-    // Re-assign mesa when pax changes
     if (reserva?.fecha) {
       const ocupadas = getOcupadas(reserva.fecha, reserva.hora, id);
       const nuevaMesa = asignarMesa(pax, ocupadas);
@@ -412,6 +395,7 @@ export default function ReservasPage() {
         </button>
       </div>
 
+      {/* ── Nueva reserva ── */}
       {tab === "nueva" && (
         <div className="card" style={{ overflow: "hidden" }}>
           <iframe
@@ -424,133 +408,172 @@ export default function ReservasPage() {
         </div>
       )}
 
+      {/* ── Plano de mesas ── */}
       {tab === "mesas" && (() => {
-        const hoy = new Date().toISOString().split("T")[0];
+        const hoy      = new Date().toISOString().split("T")[0];
         const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
 
-        const estadoMesa = (mesaId: number) => {
-          const rsHoy = reservas.filter(
-            r => r.mesa_id === mesaId && r.fecha === hoy && r.estado !== "Cancelada"
-          );
+        const estadoMesa = (mesaId: number): "libre" | "rsv" | "ocp" => {
+          const rsHoy = reservas.filter(r => r.mesa_id === mesaId && r.fecha === hoy && r.estado !== "Cancelada");
           if (rsHoy.length === 0) return "libre";
-          // Check if any reservation is happening right now (±30 min window = "ocupada")
           const activa = rsHoy.find(r => {
             if (!r.hora) return false;
             const [hh, mm] = r.hora.split(":").map(Number);
             const rMin = hh * 60 + mm;
             return ahoraMin >= rMin - 10 && ahoraMin <= rMin + 120;
           });
-          return activa ? "ocupada" : "reservada";
+          return activa ? "ocp" : "rsv";
         };
 
-        const ZONAS = ["Interior", "Terraza", "Privado"] as const;
-        const colorEstado: Record<string, string> = {
-          libre:    "var(--olive)",
-          reservada: "var(--warm)",
-          ocupada:   "var(--coral)",
+        const COLOR:  Record<string, string> = { libre: "var(--olive)", rsv: "var(--warm)",  ocp: "var(--coral)" };
+        const BG:     Record<string, string> = { libre: "var(--card)",  rsv: "rgba(200,149,110,.16)", ocp: "rgba(217,119,87,.18)" };
+        const LABEL:  Record<string, string> = { libre: "Libre", rsv: "Reservada", ocp: "Ocupada" };
+
+        type ChairSpec = { side: "top"|"bottom"|"left"|"right"; pct: number };
+        const getChairs = (cap: number): ChairSpec[] => {
+          if (cap <= 2) return [
+            { side:"top", pct:.5 }, { side:"bottom", pct:.5 },
+          ];
+          if (cap <= 4) return [
+            { side:"top", pct:.5 }, { side:"bottom", pct:.5 },
+            { side:"left", pct:.5 }, { side:"right", pct:.5 },
+          ];
+          if (cap <= 6) return [
+            { side:"top", pct:.3 }, { side:"top", pct:.7 },
+            { side:"bottom", pct:.3 }, { side:"bottom", pct:.7 },
+            { side:"left", pct:.5 }, { side:"right", pct:.5 },
+          ];
+          if (cap <= 8) return [
+            { side:"top", pct:.28 }, { side:"top", pct:.72 },
+            { side:"bottom", pct:.28 }, { side:"bottom", pct:.72 },
+            { side:"left", pct:.3 }, { side:"left", pct:.7 },
+            { side:"right", pct:.3 }, { side:"right", pct:.7 },
+          ];
+          return [
+            { side:"top", pct:.17 }, { side:"top", pct:.5 }, { side:"top", pct:.83 },
+            { side:"bottom", pct:.17 }, { side:"bottom", pct:.5 }, { side:"bottom", pct:.83 },
+            { side:"left", pct:.25 }, { side:"left", pct:.5 }, { side:"left", pct:.75 },
+            { side:"right", pct:.25 }, { side:"right", pct:.5 }, { side:"right", pct:.75 },
+          ];
         };
-        const bgEstado: Record<string, string> = {
-          libre:    "rgba(107,124,89,.08)",
-          reservada: "rgba(200,149,110,.12)",
-          ocupada:   "rgba(217,119,87,.12)",
+
+        const getTableDims = (cap: number): [number, number] => {
+          if (cap <= 2) return [58, 58];
+          if (cap <= 4) return [70, 70];
+          if (cap <= 6) return [96, 54];
+          if (cap <= 8) return [112, 56];
+          return [134, 58];
         };
-        const labelEstado: Record<string, string> = {
-          libre: "Libre", reservada: "Reservada", ocupada: "Ocupada",
-        };
+
+        const PAD = 18; const CT = 9; const CB = 14; const GAP = 5;
 
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Leyenda */}
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              {(["libre", "reservada", "ocupada"] as const).map(e => (
-                <div key={e} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: colorEstado[e] }} />
-                  {labelEstado[e]}
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
+              {(["libre","rsv","ocp"] as const).map(e => (
+                <div key={e} style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:"var(--text)" }}>
+                  <div style={{ width:10, height:10, borderRadius:"50%", background:COLOR[e] }} />
+                  {LABEL[e]}
                 </div>
               ))}
+              <span style={{ marginLeft:"auto", fontSize:11, color:"var(--text2)" }}>
+                {MESAS.reduce((s, m) => s + m.cap, 0)} pax · {MESAS.length} mesas
+              </span>
             </div>
 
-            {ZONAS.map(zona => {
-              const mesasZona = MESAS.filter(m => m.zona === zona);
-              return (
-                <div key={zona} className="card cp">
-                  <div className="ch" style={{ marginBottom: 18 }}>
-                    <span className="ct">{zona}</span>
-                    <span style={{ fontSize: 11, color: "var(--text2)" }}>
-                      {mesasZona.reduce((s, m) => s + m.cap, 0)} pax máx.
-                    </span>
-                  </div>
+            {/* Plano */}
+            <div
+              className="card"
+              style={{
+                padding: "28px 24px",
+                background: "#FAF7F3",
+                backgroundImage: "linear-gradient(rgba(45,36,22,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(45,36,22,.04) 1px,transparent 1px)",
+                backgroundSize: "32px 32px",
+              }}
+            >
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                gap: "36px 28px",
+                justifyItems: "center",
+              }}>
+                {MESAS.map(m => {
+                  const estado  = estadoMesa(m.id);
+                  const rsHoy   = reservas.filter(r => r.mesa_id === m.id && r.fecha === hoy && r.estado !== "Cancelada");
+                  const [tw, th] = getTableDims(m.cap);
+                  const isRound  = m.cap <= 2;
+                  const chairs   = getChairs(m.cap);
+                  const bc       = COLOR[estado];
+                  const totalW   = tw + PAD * 2;
+                  const totalH   = th + PAD * 2;
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 12 }}>
-                    {mesasZona.map(m => {
-                      const estado = estadoMesa(m.id);
-                      const rsHoy  = reservas.filter(r => r.mesa_id === m.id && r.fecha === hoy && r.estado !== "Cancelada");
+                  return (
+                    <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                      {/* Table + chairs */}
+                      <div style={{ position:"relative", width:totalW, height:totalH }}>
 
-                      return (
-                        <div
-                          key={m.id}
-                          style={{
-                            background: bgEstado[estado],
-                            border: `2px solid ${colorEstado[estado]}`,
-                            borderRadius: 20,
-                            padding: "16px 14px",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 6,
-                            transition: "all 160ms",
-                          }}
-                        >
-                          {/* Número + estado */}
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 16, color: "var(--dark)" }}>
-                              Mesa {m.id}
-                            </span>
-                            <span style={{
-                              width: 8, height: 8, borderRadius: "50%",
-                              background: colorEstado[estado], flexShrink: 0,
-                            }} />
-                          </div>
-
-                          {/* Capacidad */}
-                          <div style={{ fontSize: 11, color: "var(--text2)", fontWeight: 600 }}>
-                            🪑 {m.cap} pax
-                          </div>
-
-                          {/* Estado */}
-                          <div style={{ fontSize: 11, fontWeight: 700, color: colorEstado[estado], textTransform: "uppercase", letterSpacing: ".4px" }}>
-                            {labelEstado[estado]}
-                          </div>
-
-                          {/* Reservas hoy */}
-                          {rsHoy.length > 0 && (
-                            <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 3 }}>
-                              {rsHoy.map(r => (
-                                <div key={r.id} style={{ fontSize: 10, color: "var(--dark)", background: "rgba(255,255,255,.6)", borderRadius: 8, padding: "3px 7px", lineHeight: 1.4 }}>
-                                  <span style={{ fontWeight: 700 }}>{r.hora}</span> · {r.nombre.split(" ")[0]} · {r.pax}p
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                        {/* Table shape */}
+                        <div style={{
+                          position:"absolute", top:PAD, left:PAD,
+                          width:tw, height:th,
+                          borderRadius: isRound ? "50%" : 12,
+                          border: `2.5px solid ${bc}`,
+                          background: BG[estado],
+                          display:"flex", flexDirection:"column",
+                          alignItems:"center", justifyContent:"center",
+                          gap: 2, transition:"all 200ms",
+                          boxShadow: `0 2px 14px ${bc}28`,
+                        }}>
+                          <span style={{ fontWeight:700, fontSize:15, color:"var(--dark)", lineHeight:1 }}>{m.id}</span>
+                          <span style={{ fontSize:9, color:"var(--text2)" }}>{m.cap}p</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+
+                        {/* Chairs */}
+                        {chairs.map((ch, i) => {
+                          const isH = ch.side === "top" || ch.side === "bottom";
+                          const w = isH ? CB : CT;
+                          const h = isH ? CT : CB;
+                          const base = {
+                            position: "absolute" as const,
+                            width: w, height: h,
+                            background: bc,
+                            borderRadius: 4,
+                            opacity: 0.55,
+                          };
+                          if (ch.side === "top")    return <div key={i} style={{ ...base, top:    PAD - CT - GAP,  left: PAD + tw * ch.pct - CB/2 }} />;
+                          if (ch.side === "bottom") return <div key={i} style={{ ...base, bottom: PAD - CT - GAP,  left: PAD + tw * ch.pct - CB/2 }} />;
+                          if (ch.side === "left")   return <div key={i} style={{ ...base, left:   PAD - CT - GAP,  top:  PAD + th * ch.pct - CB/2 }} />;
+                          return                           <div key={i} style={{ ...base, right:  PAD - CT - GAP,  top:  PAD + th * ch.pct - CB/2 }} />;
+                        })}
+                      </div>
+
+                      {/* Labels */}
+                      <div style={{ textAlign:"center", lineHeight:1.4 }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:bc, textTransform:"uppercase", letterSpacing:".5px" }}>
+                          {LABEL[estado]}
+                        </div>
+                        {rsHoy.length > 0 && (
+                          <div style={{ fontSize:9, color:"var(--text2)", marginTop:1 }}>
+                            {rsHoy.map(r => `${r.hora} · ${r.nombre.split(" ")[0]}`).join(" / ")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         );
       })()}
 
+      {/* ── Reservas guardadas ── */}
       {tab === "lista" && (
         <div>
           <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <button className={`btn btn-sm ${vista === "calendario" ? "btn-p" : "btn-g"}`} onClick={() => setVista("calendario")}>
-              🗓 Calendario
-            </button>
-            <button className={`btn btn-sm ${vista === "lista" ? "btn-p" : "btn-g"}`} onClick={() => setVista("lista")}>
-              ☰ Lista
-            </button>
+            <button className={`btn btn-sm ${vista === "calendario" ? "btn-p" : "btn-g"}`} onClick={() => setVista("calendario")}>🗓 Calendario</button>
+            <button className={`btn btn-sm ${vista === "lista" ? "btn-p" : "btn-g"}`} onClick={() => setVista("lista")}>☰ Lista</button>
           </div>
 
           {loading ? (
