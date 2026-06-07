@@ -3,30 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const nav = [
-  {
-    section: "Principal",
-    items: [
-      { icon: "📊", label: "Dashboard", href: "/dashboard" },
-      { icon: "📅", label: "Reservas & Mesas", href: "/reservas" },
-      { icon: "🍽️", label: "Carta & Menú", href: "/carta" },
-    ],
-  },
-  {
-    section: "Operaciones",
-    items: [
-      { icon: "📦", label: "Stock & Compras", href: "/stock" },
-      { icon: "🧾", label: "Facturación", href: "/facturacion" },
-    ],
-  },
-];
-
-const bottomNav = [
+const navItems = [
   { icon: "📊", label: "Dashboard", href: "/dashboard" },
-  { icon: "📅", label: "Reservas", href: "/reservas" },
-  { icon: "🍽️", label: "Carta", href: "/carta" },
-  { icon: "📦", label: "Stock", href: "/stock" },
-  { icon: "🧾", label: "Facturas", href: "/facturacion" },
+  { icon: "📅", label: "Reservas",  href: "/reservas" },
+  { icon: "🍽️", label: "Carta",     href: "/carta" },
+  { icon: "📦", label: "Stock",     href: "/stock" },
+  { icon: "🧾", label: "Facturas",  href: "/facturacion" },
 ];
 
 export default function Sidebar() {
@@ -39,39 +21,29 @@ export default function Sidebar() {
     <>
       <aside className="sidebar">
         <div className="sb-logo">
-          <div className="name">El Sueve</div>
-          <div className="sub">Panel de gestión</div>
+          <div className="name">ES</div>
         </div>
 
-        {nav.map(({ section, items }) => (
-          <div key={section}>
-            <div className="sb-sec">{section}</div>
-            {items.map(({ icon, label, href }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`sb-item${isActive(href) ? " active" : ""}`}
-              >
-                <span className="ic">{icon}</span>
-                {label}
-              </Link>
-            ))}
-          </div>
-        ))}
+        <nav className="sb-nav">
+          {navItems.map(({ icon, label, href }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`sb-item${isActive(href) ? " active" : ""}`}
+            >
+              <span className="sb-ic">{icon}</span>
+              <span className="sb-lbl">{label}</span>
+            </Link>
+          ))}
+        </nav>
 
         <div className="sb-footer">
-          <div className="sb-role">
-            <div className="role-dot" />
-            <div>
-              <div className="role-name">Administrador</div>
-              <div className="role-sub">Vista completa</div>
-            </div>
-          </div>
+          <div className="role-dot" />
         </div>
       </aside>
 
       <nav className="bnav">
-        {bottomNav.map(({ icon, label, href }) => (
+        {navItems.map(({ icon, label, href }) => (
           <Link
             key={href}
             href={href}

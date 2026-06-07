@@ -1,6 +1,55 @@
 export default function DashboardPage() {
+  const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
+  const valores = [45, 38, 52, 67, 89, 95, 78];
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* Hero banner */}
+      <div
+        className="card"
+        style={{
+          background: "var(--dark)",
+          position: "relative",
+          overflow: "hidden",
+          padding: "24px 28px",
+        }}
+      >
+        {/* Grid texture overlay */}
+        <div
+          style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)
+            `,
+            backgroundSize: "28px 28px",
+          }}
+        />
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".8px", color: "rgba(255,255,255,.4)", marginBottom: 6 }}>
+            Restaurante El Sueve · Sábado 7 junio 2026
+          </div>
+          <div style={{ fontFamily: "var(--font-playfair)", fontSize: 26, fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: 12 }}>
+            Buenas tardes, bienvenido 👋
+          </div>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".6px", marginBottom: 2 }}>Estado</div>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(107,124,89,.25)", border: "1px solid rgba(107,124,89,.4)", borderRadius: 50, padding: "4px 12px", fontSize: 12, fontWeight: 600, color: "#8FCB7E" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#8FCB7E" }} />
+                Abierto · Servicio comida
+              </span>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".6px", marginBottom: 2 }}>Próxima reserva</div>
+              <div style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>14:00 — Mesa 3 · Martínez López (6 pax)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Metric cards */}
       <div className="mg">
         <div className="mc">
@@ -20,7 +69,7 @@ export default function DashboardPage() {
           <div className="mic mi-c">📦</div>
           <div className="ml">Stock crítico</div>
           <div className="mv" style={{ color: "var(--coral)" }}>3</div>
-          <div className="ms"><span className="badge bc">⚠️ Reponer urgente</span></div>
+          <div className="ms"><span className="badge bc">⚠ Reponer urgente</span></div>
         </div>
         <div className="mc">
           <div className="mic mi-w">🧾</div>
@@ -32,32 +81,37 @@ export default function DashboardPage() {
 
       {/* Charts row */}
       <div className="g2">
+        {/* Pill bar chart */}
         <div className="card cp">
           <div className="ch">
             <span className="ct">Aforo semanal</span>
             <span style={{ fontSize: 11, color: "var(--text2)" }}>Esta semana</span>
           </div>
-          <div style={{ height: 160, display: "flex", alignItems: "flex-end", gap: 8 }}>
-            {[45, 38, 52, 67, 89, 95, 78].map((v, i) => (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                <div
-                  style={{
-                    width: "100%",
-                    height: `${(v / 100) * 130}px`,
-                    background: "rgba(200,149,110,0.25)",
-                    borderRadius: "4px 4px 0 0",
-                    border: "1.5px solid var(--warm)",
-                    borderBottom: "none",
-                  }}
-                />
-                <span style={{ fontSize: 9, color: "var(--text2)" }}>
-                  {["L","M","X","J","V","S","D"][i]}
-                </span>
-              </div>
-            ))}
+          <div style={{ height: 148, display: "flex", alignItems: "flex-end", gap: 10, padding: "0 4px" }}>
+            {valores.map((v, i) => {
+              const isToday = i === todayIdx;
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div
+                    style={{
+                      width: "62%",
+                      height: `${(v / 100) * 124}px`,
+                      background: isToday ? "var(--warm)" : "var(--dark)",
+                      borderRadius: "50px",
+                      opacity: isToday ? 1 : 0.55,
+                      transition: "height .25s",
+                    }}
+                  />
+                  <span style={{ fontSize: 9, fontWeight: isToday ? 700 : 400, color: isToday ? "var(--dark)" : "var(--text2)" }}>
+                    {DIAS[i]}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
+        {/* Alerts */}
         <div className="card cp">
           <div className="ch">
             <span className="ct">Alertas activas</span>
@@ -97,7 +151,7 @@ export default function DashboardPage() {
             <button className="btn btn-g btn-sm">Ver todas →</button>
           </div>
         </div>
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-x">
           <table>
             <thead>
               <tr>
@@ -111,10 +165,10 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {[
-                { hora: "13:00", mesa: 7, cliente: "García Ruiz, Carlos", pax: 4, estado: "Confirmada" },
-                { hora: "13:30", mesa: 12, cliente: "López Ibáñez, Sofía", pax: 2, estado: "Confirmada" },
-                { hora: "14:00", mesa: 3, cliente: "Martínez López, Ana", pax: 6, estado: "Pendiente" },
-                { hora: "21:00", mesa: 9, cliente: "Rodríguez Vega, Miguel", pax: 3, estado: "Confirmada" },
+                { hora: "13:00", mesa: 7,  cliente: "García Ruiz, Carlos",       pax: 4, estado: "Confirmada" },
+                { hora: "13:30", mesa: 12, cliente: "López Ibáñez, Sofía",       pax: 2, estado: "Confirmada" },
+                { hora: "14:00", mesa: 3,  cliente: "Martínez López, Ana",       pax: 6, estado: "Pendiente"  },
+                { hora: "21:00", mesa: 9,  cliente: "Rodríguez Vega, Miguel",    pax: 3, estado: "Confirmada" },
               ].map((r, i) => (
                 <tr key={i}>
                   <td style={{ fontWeight: 600 }}>{r.hora}</td>
