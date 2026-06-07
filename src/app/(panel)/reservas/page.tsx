@@ -303,7 +303,7 @@ function CalendarioReservas({ reservas, onEdit, onDelete, onCambiarEstado, onCam
 export default function ReservasPage() {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<"nueva" | "lista">("nueva");
+  const [tab, setTab]           = useState<"nueva" | "lista" | "mesas">("nueva");
   const [vista, setVista]       = useState<"calendario" | "lista">("calendario");
 
   const cargarReservas = useCallback(async () => {
@@ -407,6 +407,9 @@ export default function ReservasPage() {
         <button className={`tab${tab === "lista" ? " active" : ""}`} onClick={() => setTab("lista")}>
           📋 Reservas guardadas{reservas.length > 0 && <span className="badge bd" style={{ marginLeft: 6 }}>{reservas.length}</span>}
         </button>
+        <button className={`tab${tab === "mesas" ? " active" : ""}`} onClick={() => setTab("mesas")}>
+          🪑 Mesas
+        </button>
       </div>
 
       {tab === "nueva" && (
@@ -420,6 +423,124 @@ export default function ReservasPage() {
           />
         </div>
       )}
+
+      {tab === "mesas" && (() => {
+        const hoy = new Date().toISOString().split("T")[0];
+        const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+
+        const estadoMesa = (mesaId: number) => {
+          const rsHoy = reservas.filter(
+            r => r.mesa_id === mesaId && r.fecha === hoy && r.estado !== "Cancelada"
+          );
+          if (rsHoy.length === 0) return "libre";
+          // Check if any reservation is happening right now (±30 min window = "ocupada")
+          const activa = rsHoy.find(r => {
+            if (!r.hora) return false;
+            const [hh, mm] = r.hora.split(":").map(Number);
+            const rMin = hh * 60 + mm;
+            return ahoraMin >= rMin - 10 && ahoraMin <= rMin + 120;
+          });
+          return activa ? "ocupada" : "reservada";
+        };
+
+        const ZONAS = ["Interior", "Terraza", "Privado"] as const;
+        const colorEstado: Record<string, string> = {
+          libre:    "var(--olive)",
+          reservada: "var(--warm)",
+          ocupada:   "var(--coral)",
+        };
+        const bgEstado: Record<string, string> = {
+          libre:    "rgba(107,124,89,.08)",
+          reservada: "rgba(200,149,110,.12)",
+          ocupada:   "rgba(217,119,87,.12)",
+        };
+        const labelEstado: Record<string, string> = {
+          libre: "Libre", reservada: "Reservada", ocupada: "Ocupada",
+        };
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Leyenda */}
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              {(["libre", "reservada", "ocupada"] as const).map(e => (
+                <div key={e} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: colorEstado[e] }} />
+                  {labelEstado[e]}
+                </div>
+              ))}
+            </div>
+
+            {ZONAS.map(zona => {
+              const mesasZona = MESAS.filter(m => m.zona === zona);
+              return (
+                <div key={zona} className="card cp">
+                  <div className="ch" style={{ marginBottom: 18 }}>
+                    <span className="ct">{zona}</span>
+                    <span style={{ fontSize: 11, color: "var(--text2)" }}>
+                      {mesasZona.reduce((s, m) => s + m.cap, 0)} pax máx.
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 12 }}>
+                    {mesasZona.map(m => {
+                      const estado = estadoMesa(m.id);
+                      const rsHoy  = reservas.filter(r => r.mesa_id === m.id && r.fecha === hoy && r.estado !== "Cancelada");
+
+                      return (
+                        <div
+                          key={m.id}
+                          style={{
+                            background: bgEstado[estado],
+                            border: `2px solid ${colorEstado[estado]}`,
+                            borderRadius: 20,
+                            padding: "16px 14px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            transition: "all 160ms",
+                          }}
+                        >
+                          {/* Número + estado */}
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span style={{ fontFamily: "var(--font-playfair)", fontWeight: 700, fontSize: 16, color: "var(--dark)" }}>
+                              Mesa {m.id}
+                            </span>
+                            <span style={{
+                              width: 8, height: 8, borderRadius: "50%",
+                              background: colorEstado[estado], flexShrink: 0,
+                            }} />
+                          </div>
+
+                          {/* Capacidad */}
+                          <div style={{ fontSize: 11, color: "var(--text2)", fontWeight: 600 }}>
+                            🪑 {m.cap} pax
+                          </div>
+
+                          {/* Estado */}
+                          <div style={{ fontSize: 11, fontWeight: 700, color: colorEstado[estado], textTransform: "uppercase", letterSpacing: ".4px" }}>
+                            {labelEstado[estado]}
+                          </div>
+
+                          {/* Reservas hoy */}
+                          {rsHoy.length > 0 && (
+                            <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 3 }}>
+                              {rsHoy.map(r => (
+                                <div key={r.id} style={{ fontSize: 10, color: "var(--dark)", background: "rgba(255,255,255,.6)", borderRadius: 8, padding: "3px 7px", lineHeight: 1.4 }}>
+                                  <span style={{ fontWeight: 700 }}>{r.hora}</span> · {r.nombre.split(" ")[0]} · {r.pax}p
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {tab === "lista" && (
         <div>
