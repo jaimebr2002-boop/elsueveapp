@@ -16,6 +16,18 @@ export function createServiceClient() {
   return createClient(supabaseUrl, serviceKey);
 }
 
+export type Plato = {
+  id: string;
+  cat: string;
+  nombre: string;
+  precio: number;
+  desc_: string | null;
+  estado: "Disponible" | "Agotado" | "Stock bajo";
+  imagen_url: string | null;
+  orden: number;
+  created_at: string;
+};
+
 export type Reserva = {
   id: string;
   nombre: string;

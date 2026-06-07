@@ -83,8 +83,8 @@ body {
   transition: all 160ms; display: inline-flex; align-items: center; gap: 5px; line-height: 1;
   text-decoration: none;
 }
-.btn-p { background: var(--warm); color: #fff; }
-.btn-p:hover { background: var(--warm2); }
+.btn-p { background: var(--dark); color: #fff; }
+.btn-p:hover { background: #1a1410; }
 .btn-g { background: none; color: var(--text2); border: 1.5px solid var(--border); }
 .btn-g:hover { border-color: var(--warm); color: var(--warm); }
 .btn-d { background: rgba(217,119,87,.1); color: var(--coral); border: 1.5px solid rgba(217,119,87,.3); }
@@ -190,12 +190,40 @@ tr:hover td { background: #fdfaf7; }
 .cat-hdr:hover { background: #fdfaf8; }
 .cat-hdr .chev { font-size: 10px; transition: transform 200ms; color: var(--text2); }
 .cat-body { padding: 0 18px; }
-.dish { display: flex; align-items: flex-start; gap: 11px; padding: 10px 0; border-bottom: 1px solid #f5f0eb; }
+.dish { display: flex; align-items: flex-start; gap: 11px; padding: 12px 0; border-bottom: 1px solid #f5f0eb; }
 .dish:last-child { border-bottom: none; }
-.dish-img { width: 48px; height: 48px; border-radius: 8px; background: linear-gradient(135deg,#f5ece4,#e8d4c0); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+.dish-img {
+  width: 68px; height: 68px; border-radius: 10px;
+  background: linear-gradient(135deg,#f5ece4,#e8d4c0);
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; overflow: hidden; position: relative;
+  cursor: pointer; transition: opacity 160ms;
+}
+.dish-img:hover { opacity: .85; }
+.dish-img img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
 .dish-name { font-family: var(--font-playfair), 'Playfair Display', serif; font-size: 13px; font-weight: 600; color: var(--dark); }
-.dish-desc { font-size: 11px; color: var(--text2); margin-top: 1px; line-height: 1.4; }
-.dish-price { font-size: 15px; font-weight: 700; color: var(--warm); white-space: nowrap; flex-shrink: 0; }
+.dish-desc { font-size: 11px; color: var(--text2); margin-top: 2px; line-height: 1.4; }
+.dish-price { font-size: 15px; font-weight: 700; color: var(--dark); white-space: nowrap; flex-shrink: 0; }
+
+/* ── Image upload (modal) ── */
+.img-upload {
+  width: 100%; height: 160px;
+  border: 2px dashed var(--border); border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; gap: 6px; background: #fdfaf8;
+  transition: border-color 200ms; position: relative; overflow: hidden;
+}
+.img-upload:hover { border-color: var(--warm); }
+.img-upload.has-img { border: 1.5px solid var(--border); }
+.img-upload img { width: 100%; height: 100%; object-fit: cover; }
+.img-overlay {
+  position: absolute; inset: 0;
+  background: rgba(45,36,22,.5);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 600;
+  opacity: 0; transition: opacity 180ms;
+}
+.img-upload.has-img:hover .img-overlay { opacity: 1; }
 
 /* ── Provider cards ── */
 .prov { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 16px 18px; box-shadow: 0 1px 5px rgba(45,36,22,.05); }
