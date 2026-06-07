@@ -1,8 +1,7 @@
 import { createServiceClient } from "@/lib/supabase";
 import type { Reserva } from "@/lib/supabase";
+import { CAPACIDAD_TOTAL, getMesa } from "@/lib/mesas";
 import { revalidatePath } from "next/cache";
-
-const CAPACIDAD_TOTAL = 85;
 
 async function eliminarReserva(formData: FormData) {
   "use server";
@@ -181,6 +180,7 @@ export default async function DashboardPage() {
                 <th>Hora</th>
                 <th>Cliente</th>
                 <th>Pax</th>
+                <th>Mesa</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -188,7 +188,7 @@ export default async function DashboardPage() {
             <tbody>
               {reservas.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: "28px 16px", color: "var(--text2)", fontSize: 13 }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "28px 16px", color: "var(--text2)", fontSize: 13 }}>
                     Sin reservas para hoy
                   </td>
                 </tr>
@@ -198,6 +198,11 @@ export default async function DashboardPage() {
                     <td style={{ fontWeight: 600 }}>{r.hora ?? "—"}</td>
                     <td>{r.nombre}</td>
                     <td>{r.pax ?? "—"} pax</td>
+                    <td style={{ fontWeight: 500 }}>
+                      {getMesa(r.mesa_id)
+                        ? `Mesa ${r.mesa_id}`
+                        : <span style={{ color: "var(--text2)" }}>—</span>}
+                    </td>
                     <td>
                       <span className={`badge ${r.estado === "Confirmada" ? "bg" : r.estado === "Pendiente" ? "by" : "bc"}`}>
                         {r.estado}

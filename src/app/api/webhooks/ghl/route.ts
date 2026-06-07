@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { asignarMesa, horasConflictan } from "@/lib/mesas";
 
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
 const GHL_API_VERSION = "2021-04-15";
@@ -172,17 +173,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { error } = await db.from("reservas").insert({
+    const { data: inserted, error } = await db.from("reservas").insert({
       nombre, tel, email, fecha, hora, pax, obs: null,
       ghl_id, estado: "Confirmada", source: "ghl",
-    });
+    }).select("id").single();
 
     if (error) {
       console.error("[GHL webhook] Supabase error:", JSON.stringify(error));
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, action: "inserted", pax });
+    // Auto-assign mesa
+    let mesaId: number | null = null;
+    if (inserted && fecha && pax && pax > 0) {
+      const { data: otras } = await db
+        .from("reservas")
+        .select("mesa_id, hora")
+        .eq("fecha", fecha)
+        .neq("id", inserted.id)
+        .neq("estado", "Cancelada")
+        .not("mesa_id", "is", null);
+
+      const ocupadas = new Set<number>(
+        (otras ?? [])
+          .filter(r => horasConflictan(r.hora as string | null, hora))
+          .map(r => r.mesa_id as number)
+      );
+      mesaId = asignarMesa(pax, ocupadas);
+      if (mesaId) {
+        await db.from("reservas").update({ mesa_id: mesaId }).eq("id", inserted.id);
+      }
+    }
+
+    return NextResponse.json({ ok: true, action: "inserted", pax, mesa_id: mesaId });
 
   } catch (err) {
     console.error("[GHL webhook] Unexpected:", String(err));
